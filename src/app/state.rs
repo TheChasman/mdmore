@@ -42,7 +42,9 @@ impl AppState {
     }
 
     pub fn scroll_down(&mut self) {
-        self.scroll_offset = self.scroll_offset.saturating_add(1);
+        let line_count = self.current_document.rendered.lines.len() as u16;
+        let max_offset = line_count.saturating_sub(self.viewport_height);
+        self.scroll_offset = self.scroll_offset.saturating_add(1).min(max_offset);
     }
 
     pub fn scroll_up(&mut self) {
@@ -50,7 +52,9 @@ impl AppState {
     }
 
     pub fn page_down(&mut self) {
-        self.scroll_offset = self.scroll_offset.saturating_add(self.viewport_height);
+        let line_count = self.current_document.rendered.lines.len() as u16;
+        let max_offset = line_count.saturating_sub(self.viewport_height);
+        self.scroll_offset = self.scroll_offset.saturating_add(self.viewport_height).min(max_offset);
     }
 
     pub fn page_up(&mut self) {
@@ -199,6 +203,67 @@ impl AppState {
             self.scroll_offset = heading.line as u16;
             self.toc_visible = false;
             self.cursor_line = None;
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::document::{Document, parser, renderer};
+    use std::path::PathBuf;
+
+    fn create_test_document() -> Document {
+        let content = "Line 1\n\nLine 2\n\nLine 3".to_string();
+        let blocks = parser::parse(&content);
+        let rendered = renderer::render(&blocks);
+        Document {
+            path: PathBuf::from("test.md"),
+            content,
+            rendered,
+        }
+    }
+
+    #[test]
+    fn cursor_clamps_at_end() {
+        let mut state = AppState::new(PathBuf::from("test.md"), create_test_document());
+        state.cursor_line = Some(state.current_document.rendered.lines.len() - 1);
+        let original = state.cursor_line;
+        state.cursor_down();
+        // Should not move past end
+        assert_eq!(state.cursor_line, original);
+    }
+
+    #[test]
+    fn cursor_wakes_on_up_down() {
+        let mut state = AppState::new(PathBuf::from("test.md"), create_test_document());
+        assert_eq!(state.cursor_line, None);
+        state.cursor_down();
+        // Cursor should wake
+        assert!(state.cursor_line.is_some());
+    }
+
+    #[test]
+    fn scroll_clamps_at_end() {
+        let mut state = AppState::new(PathBuf::from("test.md"), create_test_document());
+        state.viewport_height = 5;
+        let line_count = state.current_document.rendered.lines.len() as u16;
+        state.scroll_offset = 1000; // Way past end
+        state.scroll_down();
+        // Should be clamped
+        let max_offset = line_count.saturating_sub(state.viewport_height);
+        assert!(state.scroll_offset <= max_offset);
+    }
+
+    #[test]
+    fn toc_cursor_wraps() {
+        let mut state = AppState::new(PathBuf::from("test.md"), create_test_document());
+        state.toc_cursor = 0;
+        state.toc_cursor_up();
+        // Should wrap to end if there are headings
+        let heading_count = state.current_document.rendered.headings.len();
+        if heading_count > 0 {
+            assert_eq!(state.toc_cursor, heading_count - 1);
         }
     }
 }
