@@ -62,10 +62,47 @@ impl App {
                 if let Event::Key(key) = event::read()? {
                     match key.code {
                         KeyCode::Char('q') => break,
-                        KeyCode::Char('j') | KeyCode::Down => self.state.scroll_down(),
-                        KeyCode::Char('k') | KeyCode::Up => self.state.scroll_up(),
+                        KeyCode::Up => {
+                            if !self.state.is_address_bar_active() {
+                                if self.state.toc_visible {
+                                    self.state.toc_cursor_up();
+                                } else {
+                                    self.state.cursor_up();
+                                }
+                            }
+                        }
+                        KeyCode::Down => {
+                            if !self.state.is_address_bar_active() {
+                                if self.state.toc_visible {
+                                    self.state.toc_cursor_down();
+                                } else {
+                                    self.state.cursor_down();
+                                }
+                            }
+                        }
+                        KeyCode::Left => {
+                            if !self.state.is_address_bar_active() && self.state.cursor_line.is_some() {
+                                self.state.cursor_to_prev_link();
+                            }
+                        }
+                        KeyCode::Right => {
+                            if !self.state.is_address_bar_active() && self.state.cursor_line.is_some() {
+                                self.state.cursor_to_next_link();
+                            }
+                        }
+                        KeyCode::Char('j') => {
+                            if !self.state.is_address_bar_active() && self.state.cursor_line.is_none() && !self.state.toc_visible {
+                                self.state.scroll_down();
+                            }
+                        }
+                        KeyCode::Char('k') => {
+                            if !self.state.is_address_bar_active() && self.state.cursor_line.is_none() && !self.state.toc_visible {
+                                self.state.scroll_up();
+                            }
+                        }
                         KeyCode::Char(' ') => self.state.page_down(),
                         KeyCode::PageDown => self.state.page_down(),
+                        KeyCode::Char('b') => self.state.go_back().await?,
                         KeyCode::PageUp => self.state.page_up(),
                         KeyCode::Char('g') if matches!(key.modifiers, KeyModifiers::NONE) => {
                             if let Event::Key(next_key) = event::read()? {
@@ -76,7 +113,6 @@ impl App {
                         }
                         KeyCode::Char('G') => self.state.jump_to_end(),
                         KeyCode::Char('t') => self.state.toggle_toc(),
-                        KeyCode::Char('b') => self.state.go_back().await?,
                         KeyCode::Char('f') => self.state.go_forward().await?,
                         KeyCode::Char(':') => self.state.enter_address_bar(),
                         KeyCode::Char(c) if self.state.is_address_bar_active() => {
@@ -85,19 +121,36 @@ impl App {
                         KeyCode::Backspace if self.state.is_address_bar_active() => {
                             self.state.address_input.pop();
                         }
-                        KeyCode::Enter if self.state.is_address_bar_active() => {
-                            let input = self.state.address_input.clone();
-                            self.state.address_input.clear();
-                            self.state.exit_address_bar();
-                            let path = PathBuf::from(&input);
-                            if path.exists() {
-                                if let Ok(doc) = Document::from_file(&path).await {
-                                    self.state.open_document(path, doc).await;
+                        KeyCode::Enter => {
+                            if self.state.is_address_bar_active() {
+                                let input = self.state.address_input.clone();
+                                self.state.address_input.clear();
+                                self.state.exit_address_bar();
+                                let path = PathBuf::from(&input);
+                                if path.exists() {
+                                    if let Ok(doc) = Document::from_file(&path).await {
+                                        self.state.open_document(path, doc).await;
+                                    }
+                                }
+                            } else if self.state.toc_visible {
+                                self.state.jump_to_heading();
+                            } else if let Some(line) = self.state.cursor_line {
+                                if let Some(link) = self.state.current_document.rendered.links.iter().find(|l| l.line == line) {
+                                    let path = PathBuf::from(&link.url);
+                                    if path.exists() {
+                                        if let Ok(doc) = Document::from_file(&path).await {
+                                            self.state.open_document(path, doc).await;
+                                        }
+                                    }
                                 }
                             }
                         }
                         KeyCode::Esc => {
-                            if self.state.is_address_bar_active() {
+                            if self.state.toc_visible {
+                                self.state.toc_visible = false;
+                            } else if self.state.cursor_line.is_some() {
+                                self.state.cursor_line = None;
+                            } else if self.state.is_address_bar_active() {
                                 self.state.address_input.clear();
                                 self.state.exit_address_bar();
                             }
