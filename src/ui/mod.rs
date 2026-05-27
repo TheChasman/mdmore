@@ -3,7 +3,7 @@ use anyhow::Result;
 use crossterm::terminal::size;
 use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout, Rect},
-    style::{Color, Modifier, Style},
+    style::{Color, Style},
     text::{Line, Span},
     widgets::{Block, Borders, List, ListItem, Paragraph},
     Frame,
@@ -56,26 +56,31 @@ impl Ui {
 
     fn render_document(&self, f: &mut Frame, state: &AppState, area: Rect) {
         let start = state.scroll_offset as usize;
-        let end = (state.scroll_offset as usize + area.height as usize).min(state.current_document.lines.len());
+        let line_count = state.current_document.rendered.lines.len();
+        let end = (start + area.height as usize).min(line_count);
 
-        let visible_lines: Vec<Line> = state.current_document.lines[start..end]
+        let visible_lines: Vec<Line> = state.current_document.rendered.lines[start..end]
             .iter()
-            .map(|line| {
-                if line.starts_with("# ") {
-                    Line::from(vec![Span::styled(line, Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD))])
-                } else if line.starts_with("## ") {
-                    Line::from(vec![Span::styled(line, Style::default().fg(Color::Cyan).add_modifier(Modifier::DIM))])
-                } else if line.starts_with("### ") {
-                    Line::from(vec![Span::styled(line, Style::default().fg(Color::Blue))])
-                } else if line.starts_with("> ") {
-                    Line::from(vec![Span::styled(line, Style::default().fg(Color::Gray).add_modifier(Modifier::ITALIC))])
-                } else if line.starts_with("- ") || line.starts_with("* ") {
-                    Line::from(vec![Span::styled(line, Style::default().fg(Color::Green))])
-                } else if line.starts_with("```") {
-                    Line::from(vec![Span::styled(line, Style::default().fg(Color::DarkGray))])
-                } else {
-                    Line::from(vec![Span::raw(line)])
+            .enumerate()
+            .map(|(visual_idx, line)| {
+                let absolute_line = start + visual_idx;
+                if let Some(cursor_line) = state.cursor_line {
+                    if cursor_line == absolute_line {
+                        // Highlight cursor line with reversed colors
+                        let mut highlighted_spans = Vec::new();
+                        for span in &line.spans {
+                            let highlighted_style = Style::default()
+                                .bg(Color::White)
+                                .fg(Color::Black);
+                            highlighted_spans.push(Span::styled(
+                                span.content.clone(),
+                                highlighted_style,
+                            ));
+                        }
+                        return Line::from(highlighted_spans);
+                    }
                 }
+                line.clone()
             })
             .collect();
 
@@ -87,12 +92,19 @@ impl Ui {
     }
 
     fn render_toc(&self, f: &mut Frame, state: &AppState, area: Rect) {
-        let headings = &state.current_document.headings;
+        let headings = &state.current_document.rendered.headings;
         let items: Vec<ListItem> = headings
             .iter()
-            .map(|h| {
+            .enumerate()
+            .map(|(idx, h)| {
                 let indent = "  ".repeat((h.level - 1).max(0) as usize);
-                ListItem::new(format!("{}{}", indent, h.text))
+                let text = format!("{}{}", indent, h.text);
+                let style = if idx == state.toc_cursor {
+                    Style::default().bg(Color::Blue).fg(Color::White)
+                } else {
+                    Style::default().fg(Color::White)
+                };
+                ListItem::new(text).style(style)
             })
             .collect();
 
@@ -109,13 +121,21 @@ impl Ui {
             .map(|n| n.to_string_lossy().into_owned())
             .unwrap_or_else(|| "unknown".to_string());
 
-        let line_count = state.current_document.lines.len();
+        let line_count = state.current_document.rendered.lines.len();
         let visible_end = (state.scroll_offset as usize + area.height as usize).min(line_count);
-        let status = format!("{} | {}-{}/{} lines | Mode: {:?}", 
+        
+        let cursor_info = if let Some(c) = state.cursor_line {
+            format!(" | Cursor: {}", c + 1)
+        } else {
+            String::new()
+        };
+
+        let status = format!("{} | {}-{}/{} lines{} | Mode: {:?}", 
             file_name,
             state.scroll_offset as usize + 1,
             visible_end,
             line_count,
+            cursor_info,
             state.mode
         );
 
