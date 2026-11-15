@@ -66,6 +66,13 @@ This block names no language at all.
 
 ---
 
+A wide table with inline formatting:
+
+| Feature | Description | Link |
+|---|---|---|
+| **Bold** | A deliberately long description cell so the table is wider than a narrow terminal window | [Example](./README.md) |
+| `code` | Inline *italic* and `code` inside cells | [PRD](./docs/FrogRust_PRD.md) |
+
 ## Navigation
 
 - `j` / `k` scroll a line; `↓` / `↑` move the line cursor

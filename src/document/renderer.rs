@@ -27,12 +27,16 @@ pub struct RenderedDoc {
 }
 
 pub fn render(blocks: &[crate::document::parser::Block]) -> RenderedDoc {
-    render_with(blocks, true)
+    render_with(blocks, true, None)
 }
 
 /// With `highlight == false`, code bodies are unstyled (same line count), so
 /// no grammar is loaded; highlighting can be applied later via `render_with(.., true)`.
-pub fn render_with(blocks: &[crate::document::parser::Block], highlight: bool) -> RenderedDoc {
+pub fn render_with(
+    blocks: &[crate::document::parser::Block],
+    highlight: bool,
+    max_width: Option<u16>,
+) -> RenderedDoc {
     let mut doc = RenderedDoc {
         lines: vec![],
         links: vec![],
@@ -40,13 +44,13 @@ pub fn render_with(blocks: &[crate::document::parser::Block], highlight: bool) -
     };
 
     for block in blocks {
-        render_block(block, &mut doc, 0, highlight);
+        render_block(block, &mut doc, 0, highlight, max_width);
     }
 
     doc
 }
 
-fn render_block(block: &crate::document::parser::Block, doc: &mut RenderedDoc, indent_level: usize, highlight: bool) {
+fn render_block(block: &crate::document::parser::Block, doc: &mut RenderedDoc, indent_level: usize, highlight: bool, max_width: Option<u16>) {
     use crate::document::parser::Block;
 
     match block {
@@ -96,7 +100,7 @@ fn render_block(block: &crate::document::parser::Block, doc: &mut RenderedDoc, i
         Block::BlockQuote { blocks: inner } => {
             let start_idx = doc.lines.len();
             for block in inner {
-                render_block(block, doc, indent_level + 1, highlight);
+                render_block(block, doc, indent_level + 1, highlight, max_width);
             }
             // Add blockquote prefix to all lines added
             for i in start_idx..doc.lines.len() {
@@ -115,7 +119,7 @@ fn render_block(block: &crate::document::parser::Block, doc: &mut RenderedDoc, i
                 };
                 let start_idx = doc.lines.len();
                 for block in item_blocks {
-                    render_block(block, doc, indent_level + 1, highlight);
+                    render_block(block, doc, indent_level + 1, highlight, max_width);
                 }
                 // Add marker to first line of item
                 if start_idx < doc.lines.len() {
@@ -137,10 +141,93 @@ fn render_block(block: &crate::document::parser::Block, doc: &mut RenderedDoc, i
             let style = Style::default().fg(Color::DarkGray);
             doc.lines.push(Line::from(Span::styled("─".repeat(40), style)));
         }
-        Block::Table { .. } => {
-            // Simplified table handling
-            doc.lines.push(Line::from(Span::raw("[Table]")));
+        Block::Table { headers, rows } => render_table(headers, rows, doc, max_width),
+    }
+}
+
+fn render_table(
+    headers: &[Vec<crate::document::parser::Inline>],
+    rows: &[Vec<Vec<crate::document::parser::Inline>>],
+    doc: &mut RenderedDoc,
+    max_width: Option<u16>,
+) {
+    let ncols = rows.iter().map(|r| r.len()).chain([headers.len()]).max().unwrap_or(0);
+    if ncols == 0 {
+        return;
+    }
+    let text_of = |cell: Option<&Vec<crate::document::parser::Inline>>| {
+        cell.map(|c| inlines_to_text(c)).unwrap_or_default()
+    };
+    let mut widths = vec![0usize; ncols];
+    for (i, w) in widths.iter_mut().enumerate() {
+        *w = std::iter::once(headers.get(i))
+            .chain(rows.iter().map(|r| r.get(i)))
+            .map(|c| text_of(c).chars().count())
+            .max()
+            .unwrap_or(0);
+    }
+    if let Some(max) = max_width {
+        // Shrink the widest column first, down to a minimum of 3 chars.
+        let overhead = 3 * (ncols - 1);
+        while widths.iter().sum::<usize>() + overhead > max as usize {
+            let (i, w) = widths.iter().copied().enumerate().max_by_key(|&(_, w)| w).unwrap();
+            if w <= 3 {
+                break;
+            }
+            widths[i] -= 1;
         }
+    }
+
+    let fit = |s: String, w: usize| -> String {
+        if s.chars().count() > w {
+            let mut t: String = s.chars().take(w.saturating_sub(1)).collect();
+            t.push('…');
+            t
+        } else {
+            s
+        }
+    };
+    let emit = |cells: Vec<Option<&Vec<crate::document::parser::Inline>>>, bold: bool, doc: &mut RenderedDoc| {
+        let line_index = doc.lines.len();
+        let style = if bold { Style::default().add_modifier(Modifier::BOLD) } else { Style::default() };
+        let mut spans: Vec<Span<'static>> = vec![];
+        for (i, cell) in cells.into_iter().enumerate() {
+            if i > 0 {
+                spans.push(Span::raw(" │ "));
+            }
+            let w = widths[i];
+            let last = i + 1 == ncols;
+            let full = cell.map(|c| inlines_to_text(c)).unwrap_or_default();
+            if full.chars().count() > w {
+                spans.push(Span::styled(fit(full, w), style));
+                continue;
+            }
+            let mut cell_spans = match cell {
+                Some(c) => {
+                    let col_base: usize = spans.iter().map(|s| s.content.chars().count()).sum();
+                    let before = doc.links.len();
+                    let sp = render_inlines(c, style, doc, line_index);
+                    for l in &mut doc.links[before..] {
+                        l.col_start += col_base;
+                        l.col_end += col_base;
+                    }
+                    sp
+                }
+                None => vec![],
+            };
+            spans.append(&mut cell_spans);
+            if !last {
+                spans.push(Span::raw(" ".repeat(w - full.chars().count())));
+            }
+        }
+        doc.lines.push(Line::from(spans));
+    };
+
+    emit((0..ncols).map(|i| headers.get(i)).collect(), true, doc);
+    let sep: Vec<String> = widths.iter().map(|w| "─".repeat(*w)).collect();
+    doc.lines.push(Line::from(Span::raw(sep.join("─┼─"))));
+    for r in rows {
+        emit((0..ncols).map(|i| r.get(i)).collect(), false, doc);
     }
 }
 
@@ -299,8 +386,8 @@ mod tests {
     fn plain_and_highlighted_have_same_shape() {
         let md = "# T\n\n```rust\nfn a() {}\n\n\tlet x = 1;\n```\n\n[l](./x.md)";
         let blocks = crate::document::parser::parse(md);
-        let plain = render_with(&blocks, false);
-        let hl = render_with(&blocks, true);
+        let plain = render_with(&blocks, false, None);
+        let hl = render_with(&blocks, true, None);
         assert_eq!(plain.lines.len(), hl.lines.len());
         assert_eq!(plain.links.len(), hl.links.len());
         assert_eq!(plain.headings.len(), hl.headings.len());
@@ -311,5 +398,36 @@ mod tests {
                 .collect::<Vec<_>>()
         };
         assert_eq!(text(&plain), text(&hl));
+    }
+
+    #[test]
+    fn renders_table_grid() {
+        let doc = render(&parser::parse("| A | Bee |\n|---|---|\n| 1 | 2 |\n| long cell | x |"));
+        let text: Vec<String> = doc.lines.iter()
+            .map(|l| l.spans.iter().map(|s| s.content.to_string()).collect()).collect();
+        assert_eq!(text, vec![
+            "A         │ Bee",
+            "──────────┼────",
+            "1         │ 2",
+            "long cell │ x",
+        ]);
+    }
+
+    #[test]
+    fn wide_table_is_truncated_to_width() {
+        let md = "| a | b |\n|---|---|\n| aaaaaaaaaaaaaaaaaaaa | bbbbbbbbbbbbbbbbbbbb |";
+        let doc = render_with(&parser::parse(md), false, Some(20));
+        for l in &doc.lines {
+            let w: usize = l.spans.iter().map(|s| s.content.chars().count()).sum();
+            assert!(w <= 20, "line too wide: {w}");
+        }
+        assert!(doc.lines.iter().any(|l| l.spans.iter().any(|s| s.content.contains('…'))));
+    }
+
+    #[test]
+    fn table_links_have_column_offsets() {
+        let doc = render(&parser::parse("| A | B |\n|---|---|\n| xx | [go](./g.md) |"));
+        assert_eq!(doc.links.len(), 1);
+        assert_eq!((doc.links[0].line, doc.links[0].col_start, doc.links[0].col_end), (2, 5, 7));
     }
 }

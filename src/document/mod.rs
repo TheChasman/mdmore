@@ -24,7 +24,7 @@ impl Document {
 
     pub fn from_source(content: String, path: PathBuf) -> Self {
         let blocks = parser::parse(&content);
-        let rendered = renderer::render_with(&blocks, false);
+        let rendered = renderer::render_with(&blocks, false, None);
         Self {
             path,
             content,
@@ -49,7 +49,7 @@ impl Document {
 
     /// Fully highlighted render of this document's content (slow on first grammar use).
     pub fn highlighted(&self) -> RenderedDoc {
-        renderer::render_with(&parser::parse(&self.content), true)
+        renderer::render_with(&parser::parse(&self.content), true, None)
     }
 }
 

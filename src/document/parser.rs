@@ -23,7 +23,7 @@ pub enum Inline {
 use pulldown_cmark::{Event, Parser as MarkdownParser, Tag, TagEnd};
 
 pub fn parse(content: &str) -> Vec<Block> {
-    let parser = MarkdownParser::new(content);
+    let parser = MarkdownParser::new_ext(content, pulldown_cmark::Options::ENABLE_TABLES);
     let mut blocks = Vec::new();
     let mut event_stack = Vec::new();
 
@@ -150,21 +150,31 @@ fn parse_block(events: &[Event], index: &mut usize) -> Option<Block> {
         }
         Event::Start(Tag::Table(_)) => {
             *index += 1;
+            let mut headers = vec![];
+            let mut rows: Vec<Vec<Vec<Inline>>> = vec![];
             while *index < events.len() {
                 match &events[*index] {
                     Event::End(TagEnd::Table) => {
                         *index += 1;
                         break;
                     }
-                    _ => {}
+                    Event::Start(Tag::TableCell) => {
+                        *index += 1;
+                        let cell = parse_inlines_until_end(events, index, TagEnd::TableCell);
+                        // Cells directly under TableHead are headers; otherwise a body row.
+                        match rows.last_mut() {
+                            Some(row) => row.push(cell),
+                            None => headers.push(cell),
+                        }
+                    }
+                    Event::Start(Tag::TableRow) => {
+                        rows.push(vec![]);
+                        *index += 1;
+                    }
+                    _ => *index += 1,
                 }
-                *index += 1;
             }
-            // Simplified table handling for MVP
-            Some(Block::Table {
-                headers: vec![],
-                rows: vec![],
-            })
+            Some(Block::Table { headers, rows })
         }
         _ => {
             *index += 1;
