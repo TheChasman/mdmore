@@ -32,7 +32,7 @@ It started from one question: *"Is there a version of the pager `more` for Markd
 
 **Built:** rendering of headings, paragraphs, bold, italic, inline code, syntax-highlighted code blocks (syntect with bat's grammars and `ansi` theme, loaded lazily), block quotes, lists, rules, tables and links. Scrolling, a line/link cursor, a TOC sidebar, reading Markdown from stdin, following local links, back/forward, and `--version` JSON.
 
-**Highlighting:** built. Fenced blocks use the first token of the info string (`rust,ignore` gives `rust`); unknown or missing languages render plain. The `ansi` theme defers colours to the terminal palette, so it suits light and dark profiles. Grammars load on first use, so documents without code blocks pay nothing (about 28 ms to first frame). Highlighting is applied just after the first frame: code shows plain first, then a background thread colours it (about 0.4 s for `TEST.md`, dominated by the TypeScript grammar's first use), so every document opens in under 100 ms.
+**Highlighting:** built. Fenced blocks use the first token of the info string (`rust,ignore` gives `rust`); unknown or missing languages render plain. The `ansi` theme defers colours to the terminal palette, so it suits light and dark profiles. Grammars load on first use, so documents without code blocks pay nothing (about 5 ms to first frame). Highlighting is applied just after the first frame: code shows plain first, then a background thread colours it (about 0.4 s for `TEST.md`, dominated by the TypeScript grammar's first use), so the first frame stays under 100 ms (about 5 ms measured for `README.md` and `TEST.md` on an Apple Silicon Mac).
 
 ---
 
@@ -42,7 +42,7 @@ It started from one question: *"Is there a version of the pager `more` for Markd
 
 1. **Syntax-highlighted code blocks** *(the USP; built)*. Use syntect with the fence's info string (` ```rust `) to choose the grammar. Unknown or missing languages fall back to plain code styling. The colours must stay readable on both light and dark terminals.
 2. **Open and render a local `.md` file** *(built)*. `frogrust FILE` renders headings, emphasis, inline code, lists, tables, quotes, rules and links.
-3. **Pager movement with `less` muscle memory** *(mostly built)*. `j`/`k` and arrow keys scroll by a line, `space`/`PageDown` go down a page, `b` and `PageUp` go up a page, and `g`/`gg` and `G` jump to the start and end.
+3. **Pager movement with `less` muscle memory** *(built)*. `j`/`k` and arrow keys scroll by a line, `space`/`PageDown` go down a page, `b` and `PageUp` go up a page, and `g`/`gg` and `G` jump to the start and end.
 4. **Read from stdin** *(built)*. `cat notes.md | frogrust` and `frogrust -` both work, as with `less`. The keys still work when stdin is a pipe (read them from the terminal device).
 5. **Quit cleanly** *(built)*. `q` exits and restores the terminal: no leftover text, cursor visible.
 
