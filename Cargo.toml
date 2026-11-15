@@ -21,8 +21,9 @@ clap = { version = "4", features = ["derive"] }
 anyhow = "1"
 syntect = { version = "5.3", default-features = false, features = ["default-fancy"] }
 two-face = { version = "0.5", default-features = false, features = ["syntect-default-fancy"] }
-ratatui-image = "2.0.1"
-image = "0.25"
+# Decoders limited to common web formats; ratatui-image's defaults would enable every format.
+ratatui-image = { version = "2.0.1", default-features = false, features = ["rustix"] }
+image = { version = "0.25", default-features = false, features = ["png", "jpeg", "gif", "webp"] }
 rustix = { version = "0.38", features = ["stdio", "fs", "termios"] }
 
 [profile.release]

@@ -62,5 +62,5 @@ For multi-step tasks, state a brief plan:
 ### Rust Stack Notes
 - Edition: 2021
 - Error handling: anyhow for binaries, thiserror for libraries
-- Async: tokio
+- Async: none (std::thread + mpsc for background highlighting; no async runtime)
 - Prefer workspace Cargo.toml for multi-crate projects

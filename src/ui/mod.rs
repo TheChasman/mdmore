@@ -155,7 +155,7 @@ impl Ui {
             .iter()
             .enumerate()
             .map(|(idx, h)| {
-                let indent = "  ".repeat((h.level - 1).max(0) as usize);
+                let indent = "  ".repeat(h.level.saturating_sub(1) as usize);
                 let text = format!("{}{}", indent, h.text);
                 let style = if idx == state.toc_cursor {
                     Style::default().bg(Color::Blue).fg(Color::White)

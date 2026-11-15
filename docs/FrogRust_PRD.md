@@ -57,7 +57,7 @@ It started from one question: *"Is there a version of the pager `more` for Markd
 ### Tier 3 — Nice to have
 
 11. **Exit if it fits on one screen** *(built)*. `-F` / `--quit-if-one-screen`, like `less -F`.
-12. **Inline images** *(built)* in terminals that support Kitty or Sixel graphics, falling back to the alt text.
+12. **Inline images** *(built)* in terminals that support iTerm2, Kitty or Sixel graphics, with a half-block fallback elsewhere; alt text for remote, missing or undecodable images. Local files only: relative paths resolve against the document's directory, or the current directory for documents read from stdin.
 
 ### Dropped (browser-era features)
 
@@ -125,6 +125,9 @@ clap = { version = "4", features = ["derive"] }
 anyhow = "1"
 serde = { version = "1", features = ["derive"] }   # version JSON
 serde_json = "1"
+ratatui-image = "2.0.1"   # inline images (iTerm2/Kitty/Sixel, half-block fallback)
+image = "0.25"            # decoders: png, jpeg, gif, webp only
+rustix = "0.38"           # stdio/fs/termios: restore stdin after the graphics query
 ```
 
 ---

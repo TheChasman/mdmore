@@ -407,7 +407,7 @@ mod tests {
         assert_eq!(blocks.len(), 1);
         match &blocks[0] {
             Block::BlockQuote { blocks: inner } => {
-                assert!(inner.len() > 0);
+                assert!(!inner.is_empty());
             }
             _ => panic!("Expected BlockQuote"),
         }
