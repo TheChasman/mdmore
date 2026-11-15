@@ -44,8 +44,12 @@ fn main() -> Result<()> {
 
     // Restore the terminal before the panic message so it isn't lost in raw mode / alt screen.
     let default_hook = std::panic::take_hook();
+    // Only the main thread owns the terminal; a panic on the background highlight
+    // thread must not tear down the screen while the pager keeps running.
     std::panic::set_hook(Box::new(move |info| {
-        app::restore_terminal();
+        if std::thread::current().name() == Some("main") {
+            app::restore_terminal();
+        }
         default_hook(info);
     }));
 
