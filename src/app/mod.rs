@@ -21,7 +21,14 @@ pub struct App {
 impl App {
     pub async fn new(initial_path: PathBuf) -> Result<Self> {
         let document = Document::from_file(&initial_path).await?;
-        let state = state::AppState::new(initial_path, document);
+        Self::with_document(initial_path, document)
+    }
+
+    pub fn with_document(location: PathBuf, document: Document) -> Result<Self> {
+        let mut state = state::AppState::new(location.clone(), document.clone());
+        if location.as_os_str() == crate::document::STDIN_PATH {
+            state.stdin_document = Some(document);
+        }
         let ui = Ui::new()?;
         let fetcher = Fetcher::new();
 

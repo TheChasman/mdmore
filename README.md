@@ -16,7 +16,7 @@ Scope, priorities and decisions live in the PRD: [`docs/FrogRust_PRD.md`](docs/F
 | Pager scrolling, TOC sidebar, follow local links, back/forward | ✅ |
 | `--version` (JSON: version, environment, commit) | ✅ |
 | **Syntax highlighting in code blocks**, the point of FrogRust | ✅ |
-| Reading from stdin (`cat x.md \| frogrust`) | ⏳ planned |
+| Reading from stdin (`cat x.md \| frogrust` / `frogrust -`) | ✅ |
 | Search (`/`, `n`, `N`) | ⏳ planned |
 
 ## Install

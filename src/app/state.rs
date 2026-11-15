@@ -1,4 +1,4 @@
-use crate::document::Document;
+use crate::document::{Document, STDIN_PATH};
 use std::path::PathBuf;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -21,6 +21,7 @@ pub struct AppState {
     pub viewport_height: u16,
     pub cursor_line: Option<usize>,  // None = cursor dormant, Some(n) = active on line n
     pub toc_cursor: usize,           // selected heading index when TOC visible
+    pub stdin_document: Option<Document>, // set when the initial document came from stdin
 }
 
 impl AppState {
@@ -38,7 +39,17 @@ impl AppState {
             viewport_height: 20,
             cursor_line: None,
             toc_cursor: 0,
+            stdin_document: None,
         }
+    }
+
+    async fn load_location(&self, path: &PathBuf) -> anyhow::Result<Document> {
+        if path.as_os_str() == STDIN_PATH {
+            if let Some(doc) = &self.stdin_document {
+                return Ok(doc.clone());
+            }
+        }
+        Document::from_file(path).await
     }
 
     pub fn scroll_down(&mut self) {
@@ -79,7 +90,7 @@ impl AppState {
         if self.nav_index > 0 {
             self.nav_index -= 1;
             let path = self.nav_stack[self.nav_index].clone();
-            let doc = Document::from_file(&path).await?;
+            let doc = self.load_location(&path).await?;
             self.current_location = path;
             self.current_document = doc;
             self.cursor_line = None;
@@ -92,7 +103,7 @@ impl AppState {
         if self.nav_index < self.nav_stack.len() - 1 {
             self.nav_index += 1;
             let path = self.nav_stack[self.nav_index].clone();
-            let doc = Document::from_file(&path).await?;
+            let doc = self.load_location(&path).await?;
             self.current_location = path;
             self.current_document = doc;
             self.cursor_line = None;
@@ -265,5 +276,25 @@ mod tests {
         if heading_count > 0 {
             assert_eq!(state.toc_cursor, heading_count - 1);
         }
+    }
+}
+
+#[cfg(test)]
+mod stdin_tests {
+    use super::*;
+    use crate::document::STDIN_PATH;
+
+    #[tokio::test]
+    async fn go_back_returns_to_stdin_document() {
+        let stdin_doc = Document::from_source("# From stdin".into(), PathBuf::from(STDIN_PATH));
+        let mut state = AppState::new(PathBuf::from(STDIN_PATH), stdin_doc.clone());
+        state.stdin_document = Some(stdin_doc);
+        let other = std::env::temp_dir().join("frogrust_go_back_test.md");
+        std::fs::write(&other, "# Other").unwrap();
+        let doc = Document::from_file(&other).await.unwrap();
+        state.open_document(other.clone(), doc).await;
+        state.go_back().await.unwrap();
+        assert_eq!(state.current_location, PathBuf::from("-"));
+        assert_eq!(state.current_document.rendered.headings[0].text, "From stdin");
     }
 }

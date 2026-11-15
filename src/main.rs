@@ -1,6 +1,8 @@
 use anyhow::{anyhow, Result};
 use clap::{Parser, Subcommand};
 use frogrust::{app, version};
+use frogrust::document::{Document, STDIN_PATH};
+use std::io::{IsTerminal, Read};
 use std::path::PathBuf;
 
 #[derive(Parser)]
@@ -34,13 +36,24 @@ async fn main() -> Result<()> {
         return Ok(());
     }
 
-    let initial_path = args.path.unwrap_or_else(|| PathBuf::from("README.md"));
-    
-    if !initial_path.exists() {
-        return Err(anyhow!("File not found: {}", initial_path.display()));
-    }
+    let from_stdin = match &args.path {
+        Some(p) => p.as_os_str() == STDIN_PATH,
+        None => !std::io::stdin().is_terminal(),
+    };
 
-    let mut app = app::App::new(initial_path).await?;
+    // Read stdin before raw mode; crossterm reads keys from /dev/tty.
+    let mut app = if from_stdin {
+        let mut content = String::new();
+        std::io::stdin().read_to_string(&mut content)?;
+        let doc = Document::from_source(content, PathBuf::from(STDIN_PATH));
+        app::App::with_document(PathBuf::from(STDIN_PATH), doc)?
+    } else {
+        let initial_path = args.path.unwrap_or_else(|| PathBuf::from("README.md"));
+        if !initial_path.exists() {
+            return Err(anyhow!("File not found: {}", initial_path.display()));
+        }
+        app::App::new(initial_path).await?
+    };
     app.run().await?;
 
     Ok(())
