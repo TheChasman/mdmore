@@ -1,5 +1,6 @@
 // src/document/renderer.rs
 
+use super::highlight;
 use ratatui::text::{Line, Span};
 use ratatui::style::{Color, Modifier, Style};
 
@@ -71,20 +72,15 @@ fn render_block(block: &crate::document::parser::Block, doc: &mut RenderedDoc, i
             }
         }
         Block::CodeBlock { lang, code } => {
-            let style = Style::default().fg(Color::White).bg(Color::DarkGray);
+            let fence_style = Style::default().add_modifier(Modifier::DIM);
+            let token = lang.as_deref().and_then(highlight::language_token);
             doc.lines.push(Line::from("")); // Empty line before code block
-            if let Some(l) = lang {
-                doc.lines.push(Line::from(Span::styled(
-                    format!("```{}", l),
-                    style,
-                )));
-            } else {
-                doc.lines.push(Line::from(Span::styled("```".to_string(), style)));
-            }
-            for line in code.lines() {
-                doc.lines.push(Line::from(Span::styled(line.to_string(), style)));
-            }
-            doc.lines.push(Line::from(Span::styled("```".to_string(), style)));
+            doc.lines.push(Line::from(Span::styled(
+                format!("```{}", token.as_deref().unwrap_or("")),
+                fence_style,
+            )));
+            doc.lines.extend(highlight::highlight_code(code, lang.as_deref()));
+            doc.lines.push(Line::from(Span::styled("```".to_string(), fence_style)));
             doc.lines.push(Line::from("")); // Empty line after code block
         }
         Block::BlockQuote { blocks: inner } => {
@@ -267,6 +263,17 @@ mod tests {
         let blocks = parser::parse("```rust\nfn main() {}\n```");
         let doc = render(&blocks);
         assert!(doc.lines.len() > 3); // ``` + code + ```
+    }
+
+    #[test]
+    fn code_block_body_is_highlighted() {
+        let doc = render(&parser::parse("```rust,ignore\nfn main() {}\n```"));
+        // [blank, fence, body, fence, blank]
+        assert_eq!(doc.lines.len(), 5);
+        let fence: String = doc.lines[1].spans.iter().map(|s| s.content.as_ref()).collect();
+        assert_eq!(fence, "```rust");
+        assert!(doc.lines[2].spans.iter().any(|s| s.style.fg.is_some()));
+        assert!(doc.lines.iter().flat_map(|l| &l.spans).all(|s| s.style.bg.is_none()));
     }
 
     #[test]

@@ -30,9 +30,9 @@ It started from one question: *"Is there a version of the pager `more` for Markd
 
 ## Status (2026-11-15)
 
-**Built:** rendering of headings, paragraphs, bold, italic, inline code, code blocks (uncoloured), block quotes, lists, rules, tables and links. Scrolling, a line/link cursor, a TOC sidebar, following local links, back/forward, and `--version` JSON.
+**Built:** rendering of headings, paragraphs, bold, italic, inline code, syntax-highlighted code blocks (syntect with bat's grammars and `ansi` theme, loaded lazily), block quotes, lists, rules, tables and links. Scrolling, a line/link cursor, a TOC sidebar, following local links, back/forward, and `--version` JSON.
 
-**Not built: syntax highlighting.** The parser already records each fenced block's language (`Block::CodeBlock { lang, code }`), so the hook exists, but nothing colours the code yet. syntect was declared in `Cargo.toml` but never called; it was removed as unused and gets re-added with this work.
+**Highlighting:** built. Fenced blocks use the first token of the info string (`rust,ignore` gives `rust`); unknown or missing languages render plain. The `ansi` theme defers colours to the terminal palette, so it suits light and dark profiles. Grammars load on first use, so documents without code blocks pay nothing.
 
 ---
 
@@ -40,7 +40,7 @@ It started from one question: *"Is there a version of the pager `more` for Markd
 
 ### Tier 1 — The pager (next)
 
-1. **Syntax-highlighted code blocks** *(the USP; not built)*. Use syntect with the fence's info string (` ```rust `) to choose the grammar. Unknown or missing languages fall back to plain code styling. The colours must stay readable on both light and dark terminals.
+1. **Syntax-highlighted code blocks** *(the USP; built)*. Use syntect with the fence's info string (` ```rust `) to choose the grammar. Unknown or missing languages fall back to plain code styling. The colours must stay readable on both light and dark terminals.
 2. **Open and render a local `.md` file** *(built)*. `frogrust FILE` renders headings, emphasis, inline code, lists, tables, quotes, rules and links.
 3. **Pager movement with `less` muscle memory** *(mostly built)*. `j`/`k` and arrow keys scroll by a line, `space`/`PageDown` go down a page, `PageUp` goes up a page, and `g`/`gg` and `G` jump to the start and end.
 4. **Read from stdin** *(not built)*. `cat notes.md | frogrust` and `frogrust -` both work, as with `less`. The keys still work when stdin is a pipe (read them from the terminal device).
@@ -120,7 +120,8 @@ FrogRust is a pager worth using when:
 ratatui = "0.28"          # terminal UI
 crossterm = "0.28"        # terminal backend
 pulldown-cmark = "0.11"   # Markdown parser
-syntect = "5"             # syntax highlighting (to re-add with Tier 1 #1)
+syntect = "5.3"           # syntax highlighting
+two-face = "0.5"          # bat's grammars + ansi theme for syntect
 clap = { version = "4", features = ["derive"] }
 anyhow = "1"
 serde = { version = "1", features = ["derive"] }   # version JSON
