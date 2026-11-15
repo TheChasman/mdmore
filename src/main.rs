@@ -21,6 +21,14 @@ struct Args {
     #[arg(short = 'F', long = "quit-if-one-screen")]
     quit_if_one_screen: bool,
 
+    /// Highlighting theme (default: ansi; env FROGRUST_THEME); see --list-themes
+    #[arg(long)]
+    theme: Option<String>,
+
+    /// List available highlighting themes and exit
+    #[arg(long)]
+    list_themes: bool,
+
     #[command(subcommand)]
     command: Option<Command>,
 }
@@ -38,6 +46,20 @@ async fn main() -> Result<()> {
     if args.version || matches!(args.command, Some(Command::Version)) {
         println!("{}", version::version_json());
         return Ok(());
+    }
+
+    if args.list_themes {
+        for name in frogrust::document::highlight::theme_names() {
+            println!("{name}");
+        }
+        return Ok(());
+    }
+    let theme = args.theme.clone().or_else(|| std::env::var("FROGRUST_THEME").ok().filter(|s| !s.is_empty()));
+    if let Some(name) = &theme {
+        if let Err(e) = frogrust::document::highlight::set_theme(name) {
+            eprintln!("frogrust: {e}");
+            std::process::exit(2);
+        }
     }
 
     let from_stdin = match &args.path {

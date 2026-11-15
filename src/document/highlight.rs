@@ -11,7 +11,7 @@ use syntect::easy::HighlightLines;
 use syntect::highlighting::{FontStyle, Style as SynStyle, Theme};
 use syntect::parsing::SyntaxSet;
 use syntect::util::LinesWithEndings;
-use two_face::theme::EmbeddedThemeName;
+use two_face::theme::{EmbeddedLazyThemeSet, EmbeddedThemeName};
 
 static SYNTAXES: OnceLock<SyntaxSet> = OnceLock::new();
 static THEME: OnceLock<Theme> = OnceLock::new();
@@ -22,6 +22,37 @@ fn syntaxes() -> &'static SyntaxSet {
 
 fn theme() -> &'static Theme {
     THEME.get_or_init(|| two_face::theme::extra().get(EmbeddedThemeName::Ansi).clone())
+}
+
+/// Embedded theme names, sorted.
+pub fn theme_names() -> Vec<String> {
+    let mut names: Vec<String> = EmbeddedLazyThemeSet::theme_names()
+        .iter()
+        .map(|n| n.as_name().to_string())
+        .collect();
+    names.sort();
+    names
+}
+
+fn resolve_theme(name: &str) -> Result<EmbeddedThemeName, String> {
+    EmbeddedLazyThemeSet::theme_names()
+        .iter()
+        .copied()
+        .find(|n| n.as_name().eq_ignore_ascii_case(name))
+        .ok_or_else(|| format!("unknown theme '{name}'; run `frogrust --list-themes`"))
+}
+
+/// Pure name check (no global state).
+pub fn validate_theme(name: &str) -> Result<(), String> {
+    resolve_theme(name).map(|_| ())
+}
+
+/// Choose the theme; valid only before the first highlight.
+pub fn set_theme(name: &str) -> Result<(), String> {
+    let id = resolve_theme(name)?;
+    THEME
+        .set(two_face::theme::extra().get(id).clone())
+        .map_err(|_| "theme already in use; set it before highlighting".to_string())
 }
 
 /// Whether the lazy grammar set has been initialised.
@@ -97,6 +128,18 @@ mod tests {
 
     fn coloured_spans(lines: &[ratatui::text::Line]) -> usize {
         lines.iter().flat_map(|l| &l.spans).filter(|s| s.style.fg.is_some()).count()
+    }
+
+    #[test]
+    fn theme_names_include_ansi() {
+        assert!(theme_names().iter().any(|n| n == "ansi"));
+    }
+
+    #[test]
+    fn unknown_theme_errors() {
+        let err = validate_theme("no-such-theme").unwrap_err();
+        assert!(err.contains("unknown theme 'no-such-theme'"));
+        assert!(validate_theme("ansi").is_ok());
     }
 
     #[test]

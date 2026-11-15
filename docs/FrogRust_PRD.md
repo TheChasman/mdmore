@@ -51,7 +51,7 @@ It started from one question: *"Is there a version of the pager `more` for Markd
 6. **Search** *(built)*. `/pattern`, then `n`/`N` for the next/previous match, highlighting matches as `less` does.
 7. **Table of contents** *(built)*. `t` toggles a heading sidebar, and `Enter` jumps to the selected heading.
 8. **Follow local links and go back/forward** *(built)*. Kept because it's cheap and already works, but it stays local-only.
-9. **Highlighting themes** *(not built)*. A sensible default for light and dark terminals, with an option to choose a syntect theme.
+9. **Highlighting themes** *(built)*. A sensible default for light and dark terminals, with `--theme` / `FROGRUST_THEME` to choose a syntect theme and `--list-themes` to list them.
 10. **Plain output when not a terminal** *(built)*. If stdout isn't a TTY (for example `frogrust x.md | head`), print the rendered text and exit instead of starting the interactive pager, as `bat` does.
 
 ### Tier 3 — Nice to have

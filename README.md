@@ -51,3 +51,7 @@ Installs `~/Applications/FrogRust.app` with the icon in `artwork/icon/`. It appe
 | `/` then text, `Enter` | Search (case-insensitive); `n` / `N` next / previous match; `Esc` cancels |
 | `Backspace` / `f` | Back / forward between followed links |
 | `q` | Quit |
+
+## Themes
+
+Code blocks use the `ansi` theme by default, which follows your terminal's own palette and so suits light and dark terminals. Pick another with `--theme <NAME>` or the `FROGRUST_THEME` environment variable (the flag wins). `frogrust --list-themes` prints the available names, one per line. Names are case-insensitive; an unknown name exits with code 2. Other themes use fixed RGB colours.
