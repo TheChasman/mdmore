@@ -116,7 +116,7 @@ rm -rf "${iconset}" "${APP}"/Contents/Resources/{applet,droplet}.icns "${APP}/Co
 # Info.plist: identity, icon, version, and Markdown as a viewable document type
 # (this is what puts FrogRust in Finder's "Open With" list).
 plist="${APP}/Contents/Info.plist"
-plutil -remove CFBundleIconName "${plist}" 2>/dev/null || true
+plutil -remove CFBundleIconName "${plist}" >/dev/null 2>&1 || true
 for kv in "CFBundleName=${APP_NAME}" "CFBundleDisplayName=${APP_NAME}" \
           "CFBundleIdentifier=${BUNDLE_ID}" "CFBundleIconFile=${APP_NAME}" \
           "CFBundleShortVersionString=${version}" "CFBundleVersion=${version}"; do
