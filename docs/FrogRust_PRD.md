@@ -91,12 +91,11 @@ src/
     parser.rs        — pulldown-cmark events → Block/Inline AST (CodeBlock keeps `lang`)
     renderer.rs      — AST → display lines + link and heading indices
   ui/mod.rs          — ratatui view of AppState (document, TOC, status bar)
-  fetch/, storage/   — placeholders from the browser era; storage (bookmarks) is dropped
 ```
 
 **Pipeline:** file (or stdin) → parser → AST → renderer → lines → ratatui. Syntax highlighting belongs in the **renderer**: turn each `CodeBlock { lang, code }` into styled spans with syntect. That keeps the parser semantic and the UI dumb.
 
-**Concurrency:** documents are local and load almost instantly, so loading runs inline. The browser-era design (background tokio tasks plus channels for HTTP fetches) is **not needed**, because remote fetching is dropped. tokio is only used for file reads now and could be removed.
+**Concurrency:** everything is synchronous. Documents are local and load inline. The only background work is syntax highlighting: a `std::thread` per document sends finished highlights over a `std::sync::mpsc` channel (tagged with a generation counter so stale results are dropped), and the event loop applies them each tick (16 ms poll). There is no async runtime.
 
 ---
 
@@ -126,7 +125,6 @@ clap = { version = "4", features = ["derive"] }
 anyhow = "1"
 serde = { version = "1", features = ["derive"] }   # version JSON
 serde_json = "1"
-tokio = { version = "1", features = ["full"] }     # file reads only; removal candidate
 ```
 
 ---

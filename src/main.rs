@@ -39,8 +39,7 @@ enum Command {
     Version,
 }
 
-#[tokio::main]
-async fn main() -> Result<()> {
+fn main() -> Result<()> {
     let args = Args::parse();
 
     if args.version || matches!(args.command, Some(Command::Version)) {
@@ -90,9 +89,9 @@ async fn main() -> Result<()> {
                 return Ok(());
             }
         }
-        app::App::new(initial_path).await?
+        app::App::new(initial_path)?
     };
-    app.run().await?;
+    app.run()?;
 
     Ok(())
 }

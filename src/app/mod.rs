@@ -1,7 +1,6 @@
 pub mod state;
 
 use crate::document::Document;
-use crate::fetch::Fetcher;
 use crate::ui::Ui;
 use anyhow::Result;
 use crossterm::{
@@ -15,7 +14,6 @@ use std::io;
 pub struct App {
     state: state::AppState,
     ui: Ui,
-    fetcher: Fetcher,
     /// Generation whose highlight job has been spawned (None = nothing spawned yet).
     highlight_spawned_for: Option<u64>,
     highlight_tx: std::sync::mpsc::Sender<(u64, crate::document::RenderedDoc)>,
@@ -23,8 +21,8 @@ pub struct App {
 }
 
 impl App {
-    pub async fn new(initial_path: PathBuf) -> Result<Self> {
-        let document = Document::from_file(&initial_path).await?;
+    pub fn new(initial_path: PathBuf) -> Result<Self> {
+        let document = Document::from_file(&initial_path)?;
         Self::with_document(initial_path, document)
     }
 
@@ -34,21 +32,19 @@ impl App {
             state.stdin_document = Some(document);
         }
         let ui = Ui::new()?;
-        let fetcher = Fetcher::new();
 
         let (highlight_tx, highlight_rx) = std::sync::mpsc::channel();
 
         Ok(Self {
             state,
             ui,
-            fetcher,
             highlight_spawned_for: None,
             highlight_tx,
             highlight_rx,
         })
     }
 
-    pub async fn run(&mut self) -> Result<()> {
+    pub fn run(&mut self) -> Result<()> {
         enable_raw_mode()?;
         let mut stdout = io::stdout();
         execute!(stdout, EnterAlternateScreen)?;
@@ -57,7 +53,7 @@ impl App {
         let mut terminal = Terminal::new(backend)?;
         terminal.clear()?;
 
-        let result = self.event_loop(&mut terminal).await;
+        let result = self.event_loop(&mut terminal);
 
         disable_raw_mode()?;
         execute!(terminal.backend_mut(), LeaveAlternateScreen)?;
@@ -66,7 +62,7 @@ impl App {
         result
     }
 
-    async fn event_loop(&mut self, terminal: &mut Terminal<CrosstermBackend<io::Stdout>>) -> Result<()> {
+    fn event_loop(&mut self, terminal: &mut Terminal<CrosstermBackend<io::Stdout>>) -> Result<()> {
         use crossterm::event::{self, Event, KeyCode, KeyModifiers};
         use std::time::Duration;
 
@@ -94,7 +90,7 @@ impl App {
                 }
             }
 
-            if event::poll(Duration::from_millis(100))? {
+            if event::poll(Duration::from_millis(16))? {
                 if let Event::Key(key) = event::read()? {
                     self.state.status_message = None;
                     // Search-mode handling comes before every other key arm.
@@ -167,11 +163,11 @@ impl App {
                         }
                         KeyCode::Char('G') => self.state.jump_to_end(),
                         KeyCode::Char('t') => self.state.toggle_toc(),
-                        KeyCode::Char('f') => self.state.go_forward().await?,
+                        KeyCode::Char('f') => self.state.go_forward()?,
                         KeyCode::Char('/') => self.state.enter_search(),
                         KeyCode::Char('n') => self.state.search_next(),
                         KeyCode::Char('N') => self.state.search_prev(),
-                        KeyCode::Backspace => self.state.go_back().await?,
+                        KeyCode::Backspace => self.state.go_back()?,
                         KeyCode::Enter => {
                             if self.state.toc_visible {
                                 self.state.jump_to_heading();
@@ -179,8 +175,8 @@ impl App {
                                 if let Some(link) = self.state.current_document.rendered.links.iter().find(|l| l.line == line) {
                                     let path = PathBuf::from(&link.url);
                                     if path.exists() {
-                                        if let Ok(doc) = Document::from_file(&path).await {
-                                            self.state.open_document(path, doc).await;
+                                        if let Ok(doc) = Document::from_file(&path) {
+                                            self.state.open_document(path, doc);
                                         }
                                     }
                                 }

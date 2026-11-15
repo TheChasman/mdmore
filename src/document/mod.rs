@@ -17,8 +17,8 @@ pub struct Document {
 }
 
 impl Document {
-    pub async fn from_file(path: &Path) -> Result<Self> {
-        let content = tokio::fs::read_to_string(path).await?;
+    pub fn from_file(path: &Path) -> Result<Self> {
+        let content = std::fs::read_to_string(path)?;
         Ok(Self::from_source(content, path.to_path_buf()))
     }
 
