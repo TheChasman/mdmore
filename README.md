@@ -18,6 +18,8 @@ Scope, priorities and decisions live in the PRD: [`docs/FrogRust_PRD.md`](docs/F
 | **Syntax highlighting in code blocks**, the point of FrogRust | ✅ |
 | Reading from stdin (`cat x.md \| frogrust` / `frogrust -`) | ✅ |
 | Search (`/`, `n`, `N`) | ✅ |
+| Plain output when piped (`frogrust x.md \| head`) | ✅ |
+| `-F` / `--quit-if-one-screen` (`frogrust -F short.md`) | ✅ |
 
 ## Install
 

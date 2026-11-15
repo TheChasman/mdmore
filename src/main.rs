@@ -1,6 +1,6 @@
 use anyhow::{anyhow, Result};
 use clap::{Parser, Subcommand};
-use frogrust::{app, version};
+use frogrust::{app, print, version};
 use frogrust::document::{Document, STDIN_PATH};
 use std::io::{IsTerminal, Read};
 use std::path::PathBuf;
@@ -16,6 +16,10 @@ struct Args {
     /// Print version, environment and commit as JSON
     #[arg(short = 'V', long)]
     version: bool,
+
+    /// Print and exit if the document fits on one screen
+    #[arg(short = 'F', long = "quit-if-one-screen")]
+    quit_if_one_screen: bool,
 
     #[command(subcommand)]
     command: Option<Command>,
@@ -41,10 +45,16 @@ async fn main() -> Result<()> {
         None => !std::io::stdin().is_terminal(),
     };
 
+    let stdout_tty = std::io::stdout().is_terminal();
+    let need_text = !stdout_tty || args.quit_if_one_screen;
+
     // Read stdin before raw mode; crossterm reads keys from /dev/tty.
     let mut app = if from_stdin {
         let mut content = String::new();
         std::io::stdin().read_to_string(&mut content)?;
+        if let Some(()) = print_if_needed(&content, stdout_tty, args.quit_if_one_screen)? {
+            return Ok(());
+        }
         let doc = Document::from_source(content, PathBuf::from(STDIN_PATH));
         app::App::with_document(PathBuf::from(STDIN_PATH), doc)?
     } else {
@@ -52,9 +62,39 @@ async fn main() -> Result<()> {
         if !initial_path.exists() {
             return Err(anyhow!("File not found: {}", initial_path.display()));
         }
+        if need_text {
+            let content = std::fs::read_to_string(&initial_path)?;
+            if let Some(()) = print_if_needed(&content, stdout_tty, args.quit_if_one_screen)? {
+                return Ok(());
+            }
+        }
         app::App::new(initial_path).await?
     };
     app.run().await?;
 
     Ok(())
+}
+
+/// Print instead of paging when piped, or with -F when the document fits.
+/// Returns Some(()) if it printed (caller should exit).
+fn print_if_needed(content: &str, stdout_tty: bool, quit_if_one_screen: bool) -> Result<Option<()>> {
+    let mut out = std::io::stdout().lock();
+    if !stdout_tty {
+        match print::print_document(content, &mut out, false, None) {
+            Ok(()) => {}
+            // `| head` closes the pipe early; that is a normal exit.
+            Err(e) if e.kind() == std::io::ErrorKind::BrokenPipe => {}
+            Err(e) => return Err(e.into()),
+        }
+        return Ok(Some(()));
+    }
+    if quit_if_one_screen {
+        let (cols, rows) = crossterm::terminal::size()?;
+        let lines = print::render_lines(content, true, Some(cols));
+        if lines.len() <= usize::from(rows.saturating_sub(2)) {
+            print::write_lines(&lines, &mut out, true)?;
+            return Ok(Some(()));
+        }
+    }
+    Ok(None)
 }

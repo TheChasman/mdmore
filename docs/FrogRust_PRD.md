@@ -52,11 +52,11 @@ It started from one question: *"Is there a version of the pager `more` for Markd
 7. **Table of contents** *(built)*. `t` toggles a heading sidebar, and `Enter` jumps to the selected heading.
 8. **Follow local links and go back/forward** *(built)*. Kept because it's cheap and already works, but it stays local-only.
 9. **Highlighting themes** *(not built)*. A sensible default for light and dark terminals, with an option to choose a syntect theme.
-10. **Plain output when not a terminal** *(not built)*. If stdout isn't a TTY (for example `frogrust x.md | head`), print the rendered text and exit instead of starting the interactive pager, as `bat` does.
+10. **Plain output when not a terminal** *(built)*. If stdout isn't a TTY (for example `frogrust x.md | head`), print the rendered text and exit instead of starting the interactive pager, as `bat` does.
 
 ### Tier 3 — Nice to have
 
-11. **Exit if it fits on one screen** (like `less -F`).
+11. **Exit if it fits on one screen** *(built)*. `-F` / `--quit-if-one-screen`, like `less -F`.
 12. **Inline images** in terminals that support Kitty or Sixel graphics, falling back to the alt text.
 
 ### Dropped (browser-era features)
