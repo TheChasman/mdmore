@@ -131,6 +131,10 @@ fn parse_block(events: &[Event], index: &mut usize) -> Option<Block> {
                                     *index += 1;
                                     break;
                                 }
+                                e if is_inline_start(e) => {
+                                    let inlines = parse_inline_run(events, index);
+                                    item_blocks.push(Block::Paragraph { inlines });
+                                }
                                 _ => {
                                     if let Some(block) = parse_block(events, index) {
                                         item_blocks.push(block);
@@ -226,51 +230,86 @@ fn parse_inlines_until_end(events: &[Event], index: &mut usize, end_tag: TagEnd)
                 *index += 1;
                 break;
             }
-            Event::Text(text) => {
-                inlines.push(Inline::Text(text.to_string()));
-                *index += 1;
-            }
-            Event::Code(code) => {
-                inlines.push(Inline::Code(code.to_string()));
-                *index += 1;
-            }
-            Event::SoftBreak => {
-                inlines.push(Inline::SoftBreak);
-                *index += 1;
-            }
-            Event::HardBreak => {
-                inlines.push(Inline::HardBreak);
-                *index += 1;
-            }
-            Event::Start(Tag::Strong) => {
-                *index += 1;
-                let inner = parse_inlines_until_end(events, index, TagEnd::Strong);
-                inlines.push(Inline::Bold(inner));
-            }
-            Event::Start(Tag::Emphasis) => {
-                *index += 1;
-                let inner = parse_inlines_until_end(events, index, TagEnd::Emphasis);
-                inlines.push(Inline::Italic(inner));
-            }
-            Event::Start(Tag::Link { dest_url, .. }) => {
-                let url = dest_url.to_string();
-                *index += 1;
-                let text = parse_inlines_until_end(events, index, TagEnd::Link);
-                inlines.push(Inline::Link { text, url });
-            }
-            Event::Start(Tag::Image { .. }) => {
-                // Inline image inside other text: keep only its alt text.
-                *index += 1;
-                let alt = parse_inlines_until_end(events, index, TagEnd::Image);
-                inlines.extend(alt);
-            }
-            _ => {
-                *index += 1;
-            }
+            _ => parse_inline_step(events, index, &mut inlines),
         }
     }
 
     inlines
+}
+
+/// True if `event` begins inline content (text or an inline container).
+fn is_inline_start(event: &Event) -> bool {
+    matches!(
+        event,
+        Event::Text(_)
+            | Event::Code(_)
+            | Event::SoftBreak
+            | Event::HardBreak
+            | Event::InlineHtml(_)
+            | Event::Start(Tag::Strong | Tag::Emphasis | Tag::Strikethrough | Tag::Link { .. } | Tag::Image { .. })
+    )
+}
+
+/// Collects a run of consecutive inline events (a tight list item's text,
+/// which pulldown-cmark emits without a surrounding Paragraph).
+fn parse_inline_run(events: &[Event], index: &mut usize) -> Vec<Inline> {
+    let mut inlines = Vec::new();
+    while *index < events.len() && is_inline_start(&events[*index]) {
+        parse_inline_step(events, index, &mut inlines);
+    }
+    inlines
+}
+
+/// Consumes one inline event (with its children, for containers) at `index`.
+fn parse_inline_step(events: &[Event], index: &mut usize, inlines: &mut Vec<Inline>) {
+    match &events[*index] {
+        Event::Text(text) => {
+            inlines.push(Inline::Text(text.to_string()));
+            *index += 1;
+        }
+        Event::Code(code) => {
+            inlines.push(Inline::Code(code.to_string()));
+            *index += 1;
+        }
+        Event::SoftBreak => {
+            inlines.push(Inline::SoftBreak);
+            *index += 1;
+        }
+        Event::HardBreak => {
+            inlines.push(Inline::HardBreak);
+            *index += 1;
+        }
+        Event::Start(Tag::Strong) => {
+            *index += 1;
+            let inner = parse_inlines_until_end(events, index, TagEnd::Strong);
+            inlines.push(Inline::Bold(inner));
+        }
+        Event::Start(Tag::Emphasis) => {
+            *index += 1;
+            let inner = parse_inlines_until_end(events, index, TagEnd::Emphasis);
+            inlines.push(Inline::Italic(inner));
+        }
+        Event::Start(Tag::Strikethrough) => {
+            *index += 1;
+            let inner = parse_inlines_until_end(events, index, TagEnd::Strikethrough);
+            inlines.extend(inner);
+        }
+        Event::Start(Tag::Link { dest_url, .. }) => {
+            let url = dest_url.to_string();
+            *index += 1;
+            let text = parse_inlines_until_end(events, index, TagEnd::Link);
+            inlines.push(Inline::Link { text, url });
+        }
+        Event::Start(Tag::Image { .. }) => {
+            // Inline image inside other text: keep only its alt text.
+            *index += 1;
+            let alt = parse_inlines_until_end(events, index, TagEnd::Image);
+            inlines.extend(alt);
+        }
+        _ => {
+            *index += 1;
+        }
+    }
 }
 
 #[cfg(test)]
@@ -411,6 +450,54 @@ mod tests {
             }
             _ => panic!("Expected BlockQuote"),
         }
+    }
+
+    fn item_text(item: &[Block]) -> String {
+        match item.first() {
+            Some(Block::Paragraph { inlines }) => inlines
+                .iter()
+                .map(|i| match i {
+                    Inline::Text(t) | Inline::Code(t) => t.clone(),
+                    Inline::Link { .. } => "<link>".into(),
+                    _ => String::new(),
+                })
+                .collect(),
+            _ => panic!("item has no leading paragraph"),
+        }
+    }
+
+    #[test]
+    fn tight_unordered_list_keeps_text() {
+        let blocks = parse("- a\n- b\n");
+        let Block::List { ordered: false, items } = &blocks[0] else { panic!() };
+        assert_eq!(item_text(&items[0]), "a");
+        assert_eq!(item_text(&items[1]), "b");
+    }
+
+    #[test]
+    fn tight_ordered_list_keeps_text() {
+        let blocks = parse("1. one\n2. two\n");
+        let Block::List { ordered: true, items } = &blocks[0] else { panic!() };
+        assert_eq!(item_text(&items[0]), "one");
+        assert_eq!(item_text(&items[1]), "two");
+    }
+
+    #[test]
+    fn tight_item_keeps_code_and_link() {
+        let blocks = parse("- use `x` and [l](./l.md)\n");
+        let Block::List { items, .. } = &blocks[0] else { panic!() };
+        assert_eq!(item_text(&items[0]), "use x and <link>");
+    }
+
+    #[test]
+    fn nested_tight_list() {
+        let blocks = parse("- a\n  - b\n- c\n");
+        let Block::List { items, .. } = &blocks[0] else { panic!() };
+        assert_eq!(items.len(), 2);
+        assert_eq!(item_text(&items[0]), "a");
+        let Some(Block::List { items: inner, .. }) = items[0].get(1) else { panic!("no nested list") };
+        assert_eq!(item_text(&inner[0]), "b");
+        assert_eq!(item_text(&items[1]), "c");
     }
 
     #[test]
