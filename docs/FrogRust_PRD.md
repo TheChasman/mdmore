@@ -30,7 +30,7 @@ It started from one question: *"Is there a version of the pager `more` for Markd
 
 ## Status (2026-11-15)
 
-**Built:** rendering of headings, paragraphs, bold, italic, inline code, syntax-highlighted code blocks (syntect with bat's grammars and `ansi` theme, loaded lazily), block quotes, lists, rules, tables and links. Scrolling, a line/link cursor, a TOC sidebar, reading Markdown from stdin, following local links, back/forward, and `--version` JSON.
+**Built:** rendering of headings, paragraphs, bold, italic, inline code, syntax-highlighted code blocks (syntect with bat's grammars and `ansi` theme, loaded lazily), block quotes, lists, rules, tables and links. Paragraphs, headings, list items (hanging indent) and quotes wrap to the terminal width and re-wrap on resize; code blocks don't wrap (pager convention), tables truncate, and piped output stays unwrapped like `cat`. Scrolling, a line/link cursor, a TOC sidebar, reading Markdown from stdin, following local links, back/forward, and `--version` JSON.
 
 **Highlighting:** built. Fenced blocks use the first token of the info string (`rust,ignore` gives `rust`); unknown or missing languages render plain. The `ansi` theme defers colours to the terminal palette, so it suits light and dark profiles. Grammars load on first use, so documents without code blocks pay nothing (about 5 ms to first frame). Highlighting is applied just after the first frame: code shows plain first, then a background thread colours it (about 0.4 s for `TEST.md`, dominated by the TypeScript grammar's first use), so the first frame stays under 100 ms (about 5 ms measured for `README.md` and `TEST.md` on an Apple Silicon Mac).
 

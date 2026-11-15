@@ -87,7 +87,7 @@ fn main() -> Result<()> {
         if let Some(()) = print_if_needed(&content, stdout_tty, args.quit_if_one_screen)? {
             return Ok(());
         }
-        let doc = Document::from_source(content, PathBuf::from(STDIN_PATH));
+        let doc = Document::from_source(content, PathBuf::from(STDIN_PATH), crossterm::terminal::size().ok().map(|(cols, _)| cols));
         app::App::with_document(PathBuf::from(STDIN_PATH), doc)?
     } else {
         let initial_path = args.path.unwrap_or_else(|| PathBuf::from("README.md"));

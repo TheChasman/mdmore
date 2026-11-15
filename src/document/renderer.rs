@@ -78,13 +78,13 @@ pub fn render_with_base(
         } else if i > 0 && !is_code && !after_code {
             doc.lines.push(Line::from(""));
         }
-        render_block(block, &mut doc, 0, highlight, max_width, base_dir);
+        render_block(block, &mut doc, highlight, max_width, base_dir);
     }
 
     doc
 }
 
-fn render_block(block: &crate::document::parser::Block, doc: &mut RenderedDoc, indent_level: usize, highlight: bool, max_width: Option<u16>, base_dir: Option<&Path>) {
+fn render_block(block: &crate::document::parser::Block, doc: &mut RenderedDoc, highlight: bool, max_width: Option<u16>, base_dir: Option<&Path>) {
     use crate::document::parser::Block;
 
     match block {
@@ -96,10 +96,9 @@ fn render_block(block: &crate::document::parser::Block, doc: &mut RenderedDoc, i
                 3 => Style::default().fg(Color::Blue),
                 _ => Style::default().fg(Color::Blue).add_modifier(Modifier::DIM),
             };
+            let links_before = doc.links.len();
             let spans = render_inlines(inlines, style, doc, line_index);
-            if !spans.is_empty() {
-                doc.lines.push(Line::from(spans));
-            }
+            push_wrapped(doc, spans, links_before, max_width);
             let text = inlines_to_text(inlines);
             doc.headings.push(HeadingInfo {
                 line: line_index,
@@ -109,11 +108,9 @@ fn render_block(block: &crate::document::parser::Block, doc: &mut RenderedDoc, i
         }
         Block::Paragraph { inlines } => {
             let line_index = doc.lines.len();
-            let style = Style::default();
-            let spans = render_inlines(inlines, style, doc, line_index);
-            if !spans.is_empty() {
-                doc.lines.push(Line::from(spans));
-            }
+            let links_before = doc.links.len();
+            let spans = render_inlines(inlines, Style::default(), doc, line_index);
+            push_wrapped(doc, spans, links_before, max_width);
         }
         Block::CodeBlock { lang, code } => {
             let fence_style = Style::default().add_modifier(Modifier::DIM);
@@ -133,15 +130,15 @@ fn render_block(block: &crate::document::parser::Block, doc: &mut RenderedDoc, i
         }
         Block::BlockQuote { blocks: inner } => {
             let start_idx = doc.lines.len();
+            let links_before = doc.links.len();
+            let inner_width = max_width.map(|w| w.saturating_sub(2).max(1));
             for block in inner {
-                render_block(block, doc, indent_level + 1, highlight, max_width, base_dir);
+                render_block(block, doc, highlight, inner_width, base_dir);
             }
-            // Add blockquote prefix to all lines added
+            // Prefix every line added (including wrapped continuations).
             for i in start_idx..doc.lines.len() {
-                let mut line = doc.lines[i].clone();
-                let prefix_span = Span::styled("│ ", Style::default().fg(Color::Gray));
-                line.spans.insert(0, prefix_span);
-                doc.lines[i] = line;
+                let prefix = Span::styled("│ ", Style::default().fg(Color::Gray));
+                prefix_line(doc, i, links_before, prefix);
             }
         }
         Block::List { ordered, items } => {
@@ -151,29 +148,25 @@ fn render_block(block: &crate::document::parser::Block, doc: &mut RenderedDoc, i
                 } else {
                     "• ".to_string()
                 };
+                // Nesting comes from the parent's prefix, so items need no level indent.
+                let marker_w = marker.chars().count();
                 let start_idx = doc.lines.len();
+                let links_before = doc.links.len();
+                let inner_width = max_width.map(|w| w.saturating_sub(marker_w as u16).max(1));
                 for block in item_blocks {
-                    render_block(block, doc, indent_level + 1, highlight, max_width, base_dir);
+                    render_block(block, doc, highlight, inner_width, base_dir);
                 }
-                // Add marker to first line of item
-                if start_idx < doc.lines.len() {
-                    let mut line = doc.lines[start_idx].clone();
-                    let indent = "  ".repeat(indent_level);
-                    line.spans.insert(0, Span::raw(format!("{}{}", indent, marker)));
-                    doc.lines[start_idx] = line;
-                }
-                // Indent remaining lines
-                for i in (start_idx + 1)..doc.lines.len() {
-                    let mut line = doc.lines[i].clone();
-                    let indent = "  ".repeat(indent_level + 1);
-                    line.spans.insert(0, Span::raw(indent));
-                    doc.lines[i] = line;
+                // Marker on the first line; hanging indent under it on the rest.
+                for i in start_idx..doc.lines.len() {
+                    let prefix = if i == start_idx { marker.clone() } else { " ".repeat(marker_w) };
+                    prefix_line(doc, i, links_before, Span::raw(prefix));
                 }
             }
         }
         Block::Rule => {
             let style = Style::default().fg(Color::DarkGray);
-            doc.lines.push(Line::from(Span::styled("─".repeat(40), style)));
+            let len = max_width.map_or(40, |w| (w as usize).min(40));
+            doc.lines.push(Line::from(Span::styled("─".repeat(len), style)));
         }
         Block::Table { headers, rows } => render_table(headers, rows, doc, max_width),
         Block::Image { url, alt } => match local_image(url, base_dir) {
@@ -193,6 +186,138 @@ fn render_block(block: &crate::document::parser::Block, doc: &mut RenderedDoc, i
                 Style::default().add_modifier(Modifier::DIM),
             ))),
         },
+    }
+}
+
+/// Inserts `prefix` at the start of line `i`, shifting that line's links
+/// (those registered at or after `links_from`) right by its width.
+fn prefix_line(doc: &mut RenderedDoc, i: usize, links_from: usize, prefix: Span<'static>) {
+    let w = prefix.content.chars().count();
+    doc.lines[i].spans.insert(0, prefix);
+    for l in doc.links[links_from..].iter_mut().filter(|l| l.line == i) {
+        l.col_start += w;
+        l.col_end += w;
+    }
+}
+
+/// Pushes one logical line of `spans` (starting at `doc.lines.len()`), wrapped
+/// to `width` at word boundaries; words longer than the width are split. A
+/// `"\n"` span (hard break) forces a new line. Links registered at or after
+/// `links_from` refer to the logical line and are re-registered per wrapped
+/// segment. Widths are counted in chars. Upgrade path: unicode-width for CJK.
+fn push_wrapped(doc: &mut RenderedDoc, spans: Vec<Span<'static>>, links_from: usize, width: Option<u16>) {
+    if spans.is_empty() {
+        return;
+    }
+    let has_break = spans.iter().any(|s| s.content.contains('\n'));
+    let total: usize = spans.iter().map(|s| s.content.chars().count()).sum();
+    if !has_break && width.is_none_or(|w| total <= w as usize) {
+        doc.lines.push(Line::from(spans));
+        return;
+    }
+    let width = width.map_or(usize::MAX, |w| (w as usize).max(1));
+    let chars: Vec<(char, Style)> = spans
+        .iter()
+        .flat_map(|s| s.content.chars().map(move |c| (c, s.style)))
+        .collect();
+
+    // Assign each char a (row, col), or None where dropped (spaces at wraps, breaks).
+    let mut pos: Vec<Option<(usize, usize)>> = vec![None; chars.len()];
+    let (mut row, mut col) = (0usize, 0usize);
+    let mut i = 0;
+    while i < chars.len() {
+        let c = chars[i].0;
+        if c == '\n' {
+            row += 1;
+            col = 0;
+            i += 1;
+            continue;
+        }
+        let space = c == ' ';
+        let mut j = i;
+        while j < chars.len() && chars[j].0 != '\n' && (chars[j].0 == ' ') == space {
+            j += 1;
+        }
+        if space {
+            // Kept only if the next word fits on this line after them.
+            let mut k = j;
+            while k < chars.len() && chars[k].0 != ' ' && chars[k].0 != '\n' {
+                k += 1;
+            }
+            let next_len = k - j;
+            if col > 0 && col + (j - i) + next_len <= width {
+                for p in pos.iter_mut().take(j).skip(i) {
+                    *p = Some((row, col));
+                    col += 1;
+                }
+            } else if col > 0 && next_len > 0 {
+                row += 1;
+                col = 0;
+            } else if col == 0 && row == 0 {
+                // Leading spaces on the first line are content.
+                for p in pos.iter_mut().take(j).skip(i) {
+                    *p = Some((row, col));
+                    col += 1;
+                }
+            }
+        } else {
+            let len = j - i;
+            if col > 0 && col + len > width {
+                row += 1;
+                col = 0;
+            }
+            for p in pos.iter_mut().take(j).skip(i) {
+                if col == width {
+                    row += 1;
+                    col = 0;
+                }
+                *p = Some((row, col));
+                col += 1;
+            }
+        }
+        i = j;
+    }
+
+    // Rebuild styled spans per row.
+    let base = doc.lines.len();
+    let mut rows: Vec<Vec<Span<'static>>> = vec![vec![]; row + 1];
+    let mut run = String::new();
+    let mut run_style = Style::default();
+    let mut run_row = 0;
+    for (k, &(c, style)) in chars.iter().enumerate() {
+        let Some((r, _)) = pos[k] else { continue };
+        if !run.is_empty() && (r != run_row || style != run_style) {
+            rows[run_row].push(Span::styled(std::mem::take(&mut run), run_style));
+        }
+        run_row = r;
+        run_style = style;
+        run.push(c);
+    }
+    if !run.is_empty() {
+        rows[run_row].push(Span::styled(run, run_style));
+    }
+    for r in rows {
+        doc.lines.push(Line::from(r));
+    }
+
+    // Re-register links per wrapped segment.
+    let old: Vec<LinkInfo> = doc.links.drain(links_from..).collect();
+    for l in old {
+        let mut seg: Option<(usize, usize, usize)> = None; // (row, start, end)
+        for p in pos.iter().take(l.col_end.min(chars.len())).skip(l.col_start).flatten() {
+            match &mut seg {
+                Some((r, _, e)) if *r == p.0 => *e = p.1 + 1,
+                _ => {
+                    if let Some((r, s, e)) = seg.take() {
+                        doc.links.push(LinkInfo { line: base + r, col_start: s, col_end: e, url: l.url.clone() });
+                    }
+                    seg = Some((p.0, p.1, p.1 + 1));
+                }
+            }
+        }
+        if let Some((r, s, e)) = seg {
+            doc.links.push(LinkInfo { line: base + r, col_start: s, col_end: e, url: l.url });
+        }
     }
 }
 
@@ -326,8 +451,8 @@ fn render_inlines(
                     .fg(Color::Green)
                     .add_modifier(Modifier::UNDERLINED);
                 let text_str = inlines_to_text(text);
-                let col_start: usize = spans.iter().map(|s| s.content.len()).sum();
-                let col_end = col_start + text_str.len();
+                let col_start: usize = spans.iter().map(|s| s.content.chars().count()).sum();
+                let col_end = col_start + text_str.chars().count();
 
                 spans.push(Span::styled(text_str, link_style));
 
@@ -423,6 +548,91 @@ mod tests {
     fn tight_list_stays_tight() {
         let doc = render_with(&parser::parse("- a\n- b\n\npara"), false, None);
         assert_eq!(texts(&doc), vec!["• a", "• b", "", "para"]);
+    }
+
+    fn w(md: &str, width: u16) -> RenderedDoc {
+        render_with(&parser::parse(md), false, Some(width))
+    }
+
+    #[test]
+    fn wraps_paragraph_at_word_boundaries() {
+        assert_eq!(texts(&w("aaa bbb ccc ddd", 8)), vec!["aaa bbb", "ccc ddd"]);
+    }
+
+    #[test]
+    fn splits_overlong_words() {
+        assert_eq!(texts(&w("abcdefghij xy", 4)), vec!["abcd", "efgh", "ij", "xy"]);
+    }
+
+    #[test]
+    fn unwrapped_without_width() {
+        let doc = render_with(&parser::parse("aaa bbb ccc ddd"), false, None);
+        assert_eq!(texts(&doc), vec!["aaa bbb ccc ddd"]);
+    }
+
+    #[test]
+    fn wraps_heading() {
+        let doc = w("# one two three", 8);
+        assert_eq!(texts(&doc), vec!["one two", "three"]);
+        assert_eq!(doc.headings[0].line, 0);
+    }
+
+    #[test]
+    fn list_items_wrap_with_hanging_indent() {
+        assert_eq!(texts(&w("- aaa bbb ccc", 9)), vec!["• aaa bbb", "  ccc"]);
+        assert_eq!(texts(&w("1. aaa bbb ccc", 10)), vec!["1. aaa bbb", "   ccc"]);
+    }
+
+    #[test]
+    fn nested_list_wraps_inside_parent() {
+        assert_eq!(texts(&w("- a\n  - bbb ccc", 9)), vec!["• a", "  • bbb", "    ccc"]);
+    }
+
+    #[test]
+    fn block_quote_wraps_with_prefix_on_every_line() {
+        assert_eq!(texts(&w("> aaa bbb ccc", 9)), vec!["│ aaa bbb", "│ ccc"]);
+    }
+
+    #[test]
+    fn code_blocks_do_not_wrap() {
+        let doc = w("```\naaaa bbbb cccc\n```", 5);
+        assert!(texts(&doc).contains(&"aaaa bbbb cccc".to_string()));
+    }
+
+    #[test]
+    fn wrapped_lines_fit_width() {
+        let md = "A long paragraph with **bold words** and `code` and [a link](./x.md) that goes on and on.\n\n> quoted text that also goes on for quite a while\n\n- item text long enough to wrap around\n  - nested item also long enough";
+        for width in [10u16, 17, 23, 40] {
+            for l in texts(&w(md, width)) {
+                assert!(l.chars().count() <= width as usize, "{width}: {l:?}");
+            }
+        }
+    }
+
+    #[test]
+    fn wrapped_link_registers_each_segment() {
+        let doc = w("see [one two](./x.md) end", 7);
+        assert_eq!(texts(&doc), vec!["see one", "two end"]);
+        let segs: Vec<_> = doc.links.iter().map(|l| (l.line, l.col_start, l.col_end, l.url.as_str())).collect();
+        assert_eq!(segs, vec![(0, 4, 7, "./x.md"), (1, 0, 3, "./x.md")]);
+    }
+
+    #[test]
+    fn link_cols_include_list_and_quote_prefixes() {
+        let doc = w("- [go](./g.md)", 40);
+        assert_eq!((doc.links[0].line, doc.links[0].col_start, doc.links[0].col_end), (0, 2, 4));
+        let doc = w("> [go](./g.md)", 40);
+        assert_eq!((doc.links[0].col_start, doc.links[0].col_end), (2, 4));
+    }
+
+    #[test]
+    fn plain_and_highlighted_same_line_count_when_wrapped() {
+        let md = "# T\n\n```rust\nfn a() { let long_name = 1; }\n```\n\nsome words that wrap here [l](./x.md)";
+        let blocks = parser::parse(md);
+        let plain = render_with(&blocks, false, Some(12));
+        let hl = render_with(&blocks, true, Some(12));
+        assert_eq!(texts(&plain), texts(&hl));
+        assert_eq!(plain.links.len(), hl.links.len());
     }
 
     #[test]

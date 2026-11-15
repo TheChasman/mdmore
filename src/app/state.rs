@@ -29,10 +29,13 @@ pub struct AppState {
     pub stdin_document: Option<Document>, // set when the initial document came from stdin
     /// A lone `g` was pressed; a second `g` jumps to the start, any other key clears it.
     pub pending_g: bool,
+    /// Width documents are wrapped to (the terminal width); None = unwrapped.
+    pub render_width: Option<u16>,
 }
 
 impl AppState {
     pub fn new(location: PathBuf, document: Document) -> Self {
+        let render_width = document.width;
         Self {
             mode: AppMode::Reading,
             current_location: location.clone(),
@@ -53,16 +56,19 @@ impl AppState {
             generation: 0,
             stdin_document: None,
             pending_g: false,
+            render_width,
         }
     }
 
     fn load_location(&self, path: &std::path::Path) -> anyhow::Result<Document> {
         if path.as_os_str() == STDIN_PATH {
             if let Some(doc) = &self.stdin_document {
-                return Ok(doc.clone());
+                let mut doc = doc.clone();
+                doc.set_width(self.render_width);
+                return Ok(doc);
             }
         }
-        Document::from_file(path)
+        Document::from_file(path, self.render_width)
     }
 
     pub fn scroll_down(&mut self) {
@@ -149,6 +155,23 @@ impl AppState {
         self.clear_search();
         self.cursor_line = None;
         self.scroll_offset = 0;
+    }
+
+    /// Re-wraps the current document for a new terminal width. A change bumps
+    /// the generation (so an in-flight highlight at the old width is dropped),
+    /// clears search matches (their positions moved) and clamps scroll/cursor.
+    pub fn set_render_width(&mut self, width: Option<u16>) -> bool {
+        self.render_width = width;
+        if !self.current_document.set_width(width) {
+            return false;
+        }
+        self.generation += 1;
+        self.clear_search();
+        let n = self.current_document.rendered.lines.len();
+        let max_offset = n.saturating_sub(self.viewport_height as usize).min(u16::MAX as usize) as u16;
+        self.scroll_offset = self.scroll_offset.min(max_offset);
+        self.cursor_line = self.cursor_line.map(|c| c.min(n.saturating_sub(1)));
+        true
     }
 
     pub fn enter_search(&mut self) {
@@ -349,11 +372,12 @@ mod tests {
             path: PathBuf::from("test.md"),
             content,
             rendered,
+            width: None,
         }
     }
 
     fn state_from(md: &str) -> AppState {
-        let doc = Document::from_source(md.to_string(), PathBuf::from("test.md"));
+        let doc = Document::from_source(md.to_string(), PathBuf::from("test.md"), None);
         AppState::new(PathBuf::from("test.md"), doc)
     }
 
@@ -424,12 +448,27 @@ mod tests {
     #[test]
     fn search_match_near_end_is_clamped() {
         let src: String = (0..50).map(|i| format!("line{i}\n\n")).collect();
-        let doc = Document::from_source(src, PathBuf::from("t.md"));
+        let doc = Document::from_source(src, PathBuf::from("t.md"), None);
         let mut state = AppState::new(PathBuf::from("t.md"), doc);
         state.viewport_height = 10;
         state.run_search("line49");
         let max = state.current_document.rendered.lines.len() - 10;
         assert_eq!(state.scroll_offset as usize, max);
+    }
+
+    #[test]
+    fn resize_rewraps_and_drops_stale_highlight() {
+        let mut s = state_from("aaa bbb ccc ddd");
+        s.run_search("ddd");
+        let g = s.generation;
+        let stale = s.current_document.highlighted();
+        assert!(s.set_render_width(Some(4)));
+        assert_eq!(s.current_document.rendered.lines.len(), 4);
+        assert_eq!(s.generation, g + 1);
+        assert!(s.search_matches.is_empty());
+        assert!(!apply_highlight(&mut s, g, stale));
+        assert!(!s.set_render_width(Some(4)));
+        assert_eq!(s.generation, g + 1);
     }
 
     #[test]
@@ -465,12 +504,12 @@ mod stdin_tests {
 
     #[test]
     fn go_back_returns_to_stdin_document() {
-        let stdin_doc = Document::from_source("# From stdin".into(), PathBuf::from(STDIN_PATH));
+        let stdin_doc = Document::from_source("# From stdin".into(), PathBuf::from(STDIN_PATH), None);
         let mut state = AppState::new(PathBuf::from(STDIN_PATH), stdin_doc.clone());
         state.stdin_document = Some(stdin_doc);
         let other = std::env::temp_dir().join("frogrust_go_back_test.md");
         std::fs::write(&other, "# Other").unwrap();
-        let doc = Document::from_file(&other).unwrap();
+        let doc = Document::from_file(&other, None).unwrap();
         state.open_document(other.clone(), doc);
         state.go_back().unwrap();
         assert_eq!(state.current_location, PathBuf::from("-"));

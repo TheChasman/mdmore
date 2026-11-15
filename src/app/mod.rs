@@ -71,11 +71,14 @@ fn needs_picker(tried: bool, doc: &Document) -> bool {
 
 impl App {
     pub fn new(initial_path: PathBuf) -> Result<Self> {
-        let document = Document::from_file(&initial_path)?;
+        let width = crossterm::terminal::size().ok().map(|(cols, _)| cols);
+        let document = Document::from_file(&initial_path, width)?;
         Self::with_document(initial_path, document)
     }
 
-    pub fn with_document(location: PathBuf, document: Document) -> Result<Self> {
+    /// `document` is re-wrapped to the terminal width if it isn't already.
+    pub fn with_document(location: PathBuf, mut document: Document) -> Result<Self> {
+        document.set_width(crossterm::terminal::size().ok().map(|(cols, _)| cols));
         let mut state = state::AppState::new(location.clone(), document.clone());
         if location.as_os_str() == crate::document::STDIN_PATH {
             state.stdin_document = Some(document);
@@ -137,6 +140,12 @@ impl App {
             terminal_size = crossterm::terminal::size()?;
             // Document rows: everything above the 1-row status bar.
             self.state.viewport_height = terminal_size.1.saturating_sub(1);
+            // Wrap at the full terminal width (the TOC, when shown, overlays the
+            // left of the text). A width change bumps the generation, so the
+            // highlight below re-runs at the new width and stale results drop.
+            if self.state.set_render_width(Some(terminal_size.0)) {
+                dirty = true;
+            }
             if dirty {
                 terminal.draw(|f| self.ui.render(f, &self.state))?;
                 dirty = false;
@@ -251,7 +260,7 @@ impl App {
                                 if let Some(link) = self.state.current_document.rendered.links.iter().find(|l| l.line == line) {
                                     let path = PathBuf::from(&link.url);
                                     if path.exists() {
-                                        if let Ok(doc) = Document::from_file(&path) {
+                                        if let Ok(doc) = Document::from_file(&path, self.state.render_width) {
                                             self.state.open_document(path, doc);
                                         }
                                     }
@@ -281,9 +290,9 @@ mod tests {
 
     #[test]
     fn picker_only_for_documents_with_images() {
-        let plain = Document::from_source("# Hi\n\ntext".into(), PathBuf::from("x.md"));
+        let plain = Document::from_source("# Hi\n\ntext".into(), PathBuf::from("x.md"), None);
         let md = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("artwork/icon/x.md");
-        let with_img = Document::from_source("![alt](RustFrog.png)".into(), md);
+        let with_img = Document::from_source("![alt](RustFrog.png)".into(), md, None);
         assert!(!needs_picker(false, &plain));
         assert!(needs_picker(false, &with_img));
         assert!(!needs_picker(true, &with_img));

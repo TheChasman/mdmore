@@ -84,6 +84,19 @@ A wide table with inline formatting:
 - `Backspace` / `f` go back / forward
 - `q` quits
 
+## Wrapping and tight lists
+
+A deliberately long paragraph to check wrapping: it should fold at word boundaries to the width of your terminal, never run off the right-hand edge, and re-wrap when you resize the window. Links such as [the PRD](docs/FrogRust_PRD.md) stay followable even when they land near the end of a line.
+
+- A tight list item with `inline code`
+- A tight item long enough to wrap, whose continuation lines should hang neatly under the text rather than under the bullet marker
+  - A nested tight item
+  - Another nested item
+- Back to the top level
+
+1. First ordered item
+2. Second ordered item
+
 ## More content
 
 Lines to test scrolling.
