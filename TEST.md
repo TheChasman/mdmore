@@ -114,6 +114,10 @@ Line 23
 Line 24
 Line 25
 
+## Image
+
+![RustFrog icon](artwork/icon/RustFrog.png)
+
 ## End
 
 If you can read this, scrolling to the end works.

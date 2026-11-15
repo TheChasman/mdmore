@@ -20,6 +20,27 @@ pub struct App {
     highlight_rx: std::sync::mpsc::Receiver<(u64, crate::document::RenderedDoc)>,
 }
 
+/// Builds the image picker. Must run after entering the alternate screen and before
+/// reading events. ratatui-image's terminal query can leave stdin non-blocking and
+/// with altered termios when the terminal doesn't reply, which breaks crossterm's
+/// reads, so both are restored here.
+fn detect_picker() -> Option<ratatui_image::picker::Picker> {
+    let stdin = rustix::stdio::stdin();
+    let flags = rustix::fs::fcntl_getfl(stdin).ok();
+    let termios = rustix::termios::tcgetattr(stdin).ok();
+    let picker = ratatui_image::picker::Picker::from_termios().ok().map(|mut p| {
+        p.guess_protocol();
+        p
+    });
+    if let Some(flags) = flags {
+        let _ = rustix::fs::fcntl_setfl(stdin, flags);
+    }
+    if let Some(t) = termios {
+        let _ = rustix::termios::tcsetattr(stdin, rustix::termios::OptionalActions::Now, &t);
+    }
+    picker
+}
+
 impl App {
     pub fn new(initial_path: PathBuf) -> Result<Self> {
         let document = Document::from_file(&initial_path)?;
@@ -52,6 +73,7 @@ impl App {
         let backend = CrosstermBackend::new(stdout);
         let mut terminal = Terminal::new(backend)?;
         terminal.clear()?;
+        self.ui.picker = detect_picker();
 
         let result = self.event_loop(&mut terminal);
 

@@ -3,6 +3,18 @@
 use super::highlight;
 use ratatui::text::{Line, Span};
 use ratatui::style::{Color, Modifier, Style};
+use std::path::{Path, PathBuf};
+
+/// Rows reserved for an inline image.
+pub const IMAGE_ROWS: u16 = 12;
+
+#[derive(Clone)]
+pub struct ImageInfo {
+    pub line: usize,
+    pub height: u16,
+    pub path: PathBuf,
+    pub alt: String,
+}
 
 #[derive(Clone)]
 pub struct LinkInfo {
@@ -24,6 +36,7 @@ pub struct RenderedDoc {
     pub lines: Vec<Line<'static>>,
     pub links: Vec<LinkInfo>,
     pub headings: Vec<HeadingInfo>,
+    pub images: Vec<ImageInfo>,
 }
 
 pub fn render(blocks: &[crate::document::parser::Block]) -> RenderedDoc {
@@ -37,20 +50,32 @@ pub fn render_with(
     highlight: bool,
     max_width: Option<u16>,
 ) -> RenderedDoc {
+    render_with_base(blocks, highlight, max_width, None)
+}
+
+/// As `render_with`; local image urls resolve against `base_dir`. With `None`
+/// (print mode) every image renders as its `[image: <alt>]` line.
+pub fn render_with_base(
+    blocks: &[crate::document::parser::Block],
+    highlight: bool,
+    max_width: Option<u16>,
+    base_dir: Option<&Path>,
+) -> RenderedDoc {
     let mut doc = RenderedDoc {
         lines: vec![],
         links: vec![],
         headings: vec![],
+        images: vec![],
     };
 
     for block in blocks {
-        render_block(block, &mut doc, 0, highlight, max_width);
+        render_block(block, &mut doc, 0, highlight, max_width, base_dir);
     }
 
     doc
 }
 
-fn render_block(block: &crate::document::parser::Block, doc: &mut RenderedDoc, indent_level: usize, highlight: bool, max_width: Option<u16>) {
+fn render_block(block: &crate::document::parser::Block, doc: &mut RenderedDoc, indent_level: usize, highlight: bool, max_width: Option<u16>, base_dir: Option<&Path>) {
     use crate::document::parser::Block;
 
     match block {
@@ -100,7 +125,7 @@ fn render_block(block: &crate::document::parser::Block, doc: &mut RenderedDoc, i
         Block::BlockQuote { blocks: inner } => {
             let start_idx = doc.lines.len();
             for block in inner {
-                render_block(block, doc, indent_level + 1, highlight, max_width);
+                render_block(block, doc, indent_level + 1, highlight, max_width, base_dir);
             }
             // Add blockquote prefix to all lines added
             for i in start_idx..doc.lines.len() {
@@ -119,7 +144,7 @@ fn render_block(block: &crate::document::parser::Block, doc: &mut RenderedDoc, i
                 };
                 let start_idx = doc.lines.len();
                 for block in item_blocks {
-                    render_block(block, doc, indent_level + 1, highlight, max_width);
+                    render_block(block, doc, indent_level + 1, highlight, max_width, base_dir);
                 }
                 // Add marker to first line of item
                 if start_idx < doc.lines.len() {
@@ -142,7 +167,33 @@ fn render_block(block: &crate::document::parser::Block, doc: &mut RenderedDoc, i
             doc.lines.push(Line::from(Span::styled("─".repeat(40), style)));
         }
         Block::Table { headers, rows } => render_table(headers, rows, doc, max_width),
+        Block::Image { url, alt } => match local_image(url, base_dir) {
+            Some(path) => {
+                doc.images.push(ImageInfo {
+                    line: doc.lines.len(),
+                    height: IMAGE_ROWS,
+                    path,
+                    alt: alt.clone(),
+                });
+                for _ in 0..IMAGE_ROWS {
+                    doc.lines.push(Line::from(""));
+                }
+            }
+            None => doc.lines.push(Line::from(Span::styled(
+                format!("[image: {alt}]"),
+                Style::default().add_modifier(Modifier::DIM),
+            ))),
+        },
     }
+}
+
+/// Resolves `url` to an existing local file, or None for remote/missing urls.
+fn local_image(url: &str, base_dir: Option<&Path>) -> Option<PathBuf> {
+    if url.contains("://") || url.starts_with("data:") {
+        return None;
+    }
+    let path = base_dir?.join(url);
+    path.is_file().then_some(path)
 }
 
 fn render_table(
@@ -314,6 +365,26 @@ fn inlines_to_text(inlines: &[crate::document::parser::Inline]) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::path::Path;
+
+    #[test]
+    fn missing_image_falls_back_to_alt() {
+        let doc = render_with_base(&parser::parse("![gone](nope.png)"), false, None, Some(Path::new("/tmp")));
+        assert!(doc.images.is_empty());
+        let t: String = doc.lines[0].spans.iter().map(|s| s.content.to_string()).collect();
+        assert_eq!(t, "[image: gone]");
+    }
+
+    #[test]
+    fn local_image_reserves_rows() {
+        let dir = std::env::temp_dir();
+        let p = dir.join("frogrust_test_img.png");
+        image::RgbaImage::new(4, 4).save(&p).unwrap();
+        let doc = render_with_base(&parser::parse("![x](frogrust_test_img.png)"), false, None, Some(&dir));
+        assert_eq!(doc.images.len(), 1);
+        assert_eq!(doc.images[0].height, 12);
+        assert_eq!(doc.lines.len(), 12);
+    }
     use crate::document::parser;
 
     #[test]

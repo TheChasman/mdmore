@@ -8,6 +8,8 @@ pub enum Block {
     List { ordered: bool, items: Vec<Vec<Block>> },
     Rule,
     Table { headers: Vec<Vec<Inline>>, rows: Vec<Vec<Vec<Inline>>> },
+    /// A paragraph whose only content is one image.
+    Image { url: String, alt: String },
 }
 
 pub enum Inline {
@@ -56,6 +58,10 @@ fn parse_block(events: &[Event], index: &mut usize) -> Option<Block> {
             })
         }
         Event::Start(Tag::Paragraph) => {
+            if let Some((block, next)) = standalone_image(events, *index + 1) {
+                *index = next;
+                return Some(block);
+            }
             *index += 1;
             let inlines = parse_inlines_until_end(events, index, TagEnd::Paragraph);
             Some(Block::Paragraph { inlines })
@@ -183,6 +189,34 @@ fn parse_block(events: &[Event], index: &mut usize) -> Option<Block> {
     }
 }
 
+/// If `events[start..]` is exactly `Image .. End(Image) End(Paragraph)`, returns the
+/// image block and the index after the paragraph end.
+fn standalone_image(events: &[Event], start: usize) -> Option<(Block, usize)> {
+    let Some(Event::Start(Tag::Image { dest_url, .. })) = events.get(start) else {
+        return None;
+    };
+    let mut i = start + 1;
+    let mut alt = String::new();
+    loop {
+        match events.get(i)? {
+            Event::End(TagEnd::Image) => break,
+            Event::Text(t) | Event::Code(t) => alt.push_str(t),
+            _ => {}
+        }
+        i += 1;
+    }
+    match events.get(i + 1)? {
+        Event::End(TagEnd::Paragraph) => Some((
+            Block::Image {
+                url: dest_url.to_string(),
+                alt,
+            },
+            i + 2,
+        )),
+        _ => None,
+    }
+}
+
 fn parse_inlines_until_end(events: &[Event], index: &mut usize, end_tag: TagEnd) -> Vec<Inline> {
     let mut inlines = Vec::new();
 
@@ -224,6 +258,12 @@ fn parse_inlines_until_end(events: &[Event], index: &mut usize, end_tag: TagEnd)
                 let text = parse_inlines_until_end(events, index, TagEnd::Link);
                 inlines.push(Inline::Link { text, url });
             }
+            Event::Start(Tag::Image { .. }) => {
+                // Inline image inside other text: keep only its alt text.
+                *index += 1;
+                let alt = parse_inlines_until_end(events, index, TagEnd::Image);
+                inlines.extend(alt);
+            }
             _ => {
                 *index += 1;
             }
@@ -236,6 +276,12 @@ fn parse_inlines_until_end(events: &[Event], index: &mut usize, end_tag: TagEnd)
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn parses_standalone_image() {
+        let blocks = parse("![a frog](frog.png)");
+        assert!(matches!(&blocks[0], Block::Image { url, alt } if url == "frog.png" && alt == "a frog"));
+    }
 
     #[test]
     fn parses_heading() {

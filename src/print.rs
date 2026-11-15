@@ -100,6 +100,13 @@ mod tests {
     use super::*;
 
     #[test]
+    fn print_image_shows_alt() {
+        let mut out = Vec::new();
+        print_document("![a frog](artwork/icon/RustFrog.png)\n", &mut out, false, None).unwrap();
+        assert_eq!(String::from_utf8(out).unwrap().trim(), "[image: a frog]");
+    }
+
+    #[test]
     fn print_plain_has_no_escapes() {
         let mut out = Vec::new();
         print_document("# T\n\n```rust\nfn a() {}\n```\n", &mut out, false, None).unwrap();

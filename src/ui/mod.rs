@@ -1,6 +1,9 @@
 use crate::app::state::AppState;
 use anyhow::Result;
 use crossterm::terminal::size;
+use ratatui_image::{picker::Picker, protocol::StatefulProtocol, StatefulImage};
+use std::collections::HashMap;
+use std::path::{Path, PathBuf};
 use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
@@ -12,15 +15,24 @@ use ratatui::{
 pub struct Ui {
     pub width: u16,
     pub height: u16,
+    /// Terminal graphics picker; None until set after raw mode (or if detection failed).
+    pub picker: Option<Picker>,
+    /// Decoded images per path; None records a decode failure (alt text shown).
+    images: HashMap<PathBuf, Option<Box<dyn StatefulProtocol>>>,
 }
 
 impl Ui {
     pub fn new() -> Result<Self> {
         let (width, height) = size()?;
-        Ok(Self { width, height })
+        Ok(Self {
+            width,
+            height,
+            picker: None,
+            images: HashMap::new(),
+        })
     }
 
-    pub fn render(&self, f: &mut Frame, state: &AppState) {
+    pub fn render(&mut self, f: &mut Frame, state: &AppState) {
         let chunks = if state.toc_visible {
             Layout::default()
                 .direction(Direction::Horizontal)
@@ -50,7 +62,7 @@ impl Ui {
         }
     }
 
-    fn render_document(&self, f: &mut Frame, state: &AppState, area: Rect) {
+    fn render_document(&mut self, f: &mut Frame, state: &AppState, area: Rect) {
         let start = state.scroll_offset as usize;
         let line_count = state.current_document.rendered.lines.len();
         let end = (start + area.height as usize).min(line_count);
@@ -95,6 +107,46 @@ impl Ui {
             .alignment(Alignment::Left);
 
         f.render_widget(paragraph, area);
+        self.render_images(f, state, area);
+    }
+
+    /// Draws each on-screen image into its placeholder rows. A partly visible
+    /// image shows its alt text in its first visible row instead.
+    fn render_images(&mut self, f: &mut Frame, state: &AppState, area: Rect) {
+        let start = state.scroll_offset as usize;
+        let end = start + area.height as usize;
+        for info in &state.current_document.rendered.images {
+            let (top, bottom) = (info.line, info.line + info.height as usize);
+            if bottom <= start || top >= end {
+                continue;
+            }
+            let fully = top >= start && bottom <= end;
+            if fully {
+                let rect = Rect::new(area.x, area.y + (top - start) as u16, area.width, info.height);
+                if let Some(proto) = self.image_for(&info.path) {
+                    f.render_stateful_widget(StatefulImage::new(None), rect, proto);
+                    continue;
+                }
+            }
+            let row = area.y + (top.max(start) - start) as u16;
+            let alt = Paragraph::new(Line::from(Span::styled(
+                format!("[image: {}]", info.alt),
+                Style::default().add_modifier(Modifier::DIM),
+            )));
+            f.render_widget(alt, Rect::new(area.x, row, area.width, 1));
+        }
+    }
+
+    /// Lazily decodes `path` on first display; decode failures are cached as None.
+    fn image_for(&mut self, path: &Path) -> Option<&mut Box<dyn StatefulProtocol>> {
+        let picker = self.picker.as_mut()?;
+        self.images
+            .entry(path.to_path_buf())
+            .or_insert_with(|| {
+                let img = image::ImageReader::open(path).ok()?.with_guessed_format().ok()?.decode().ok()?;
+                Some(picker.new_resize_protocol(img))
+            })
+            .as_mut()
     }
 
     fn render_toc(&self, f: &mut Frame, state: &AppState, area: Rect) {

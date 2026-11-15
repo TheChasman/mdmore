@@ -24,7 +24,7 @@ impl Document {
 
     pub fn from_source(content: String, path: PathBuf) -> Self {
         let blocks = parser::parse(&content);
-        let rendered = renderer::render_with(&blocks, false, None);
+        let rendered = renderer::render_with_base(&blocks, false, None, Some(&base_dir(&path)));
         Self {
             path,
             content,
@@ -49,7 +49,18 @@ impl Document {
 
     /// Fully highlighted render of this document's content (slow on first grammar use).
     pub fn highlighted(&self) -> RenderedDoc {
-        renderer::render_with(&parser::parse(&self.content), true, None)
+        renderer::render_with_base(&parser::parse(&self.content), true, None, Some(&base_dir(&self.path)))
+    }
+}
+
+/// Directory local image urls resolve against: the file's directory, or cwd for stdin.
+fn base_dir(path: &Path) -> PathBuf {
+    if path.as_os_str() == STDIN_PATH {
+        return std::env::current_dir().unwrap_or_default();
+    }
+    match path.parent() {
+        Some(p) if !p.as_os_str().is_empty() => p.to_path_buf(),
+        _ => std::env::current_dir().unwrap_or_default(),
     }
 }
 

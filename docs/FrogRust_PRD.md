@@ -57,7 +57,7 @@ It started from one question: *"Is there a version of the pager `more` for Markd
 ### Tier 3 — Nice to have
 
 11. **Exit if it fits on one screen** *(built)*. `-F` / `--quit-if-one-screen`, like `less -F`.
-12. **Inline images** in terminals that support Kitty or Sixel graphics, falling back to the alt text.
+12. **Inline images** *(built)* in terminals that support Kitty or Sixel graphics, falling back to the alt text.
 
 ### Dropped (browser-era features)
 
