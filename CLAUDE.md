@@ -52,3 +52,9 @@ Transform tasks into verifiable goals:
 - "Refactor X" → "Ensure tests pass before and after"
 
 For multi-step tasks, state a brief plan:
+
+### Rust Stack Notes
+- Edition: 2021
+- Error handling: anyhow for binaries, thiserror for libraries
+- Async: tokio
+- Prefer workspace Cargo.toml for multi-crate projects
