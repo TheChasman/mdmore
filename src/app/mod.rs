@@ -128,14 +128,15 @@ impl App {
         use std::time::Duration;
 
         let mut terminal_size = crossterm::terminal::size()?;
-        self.state.viewport_height = terminal_size.1.saturating_sub(2);
+        self.state.viewport_height = terminal_size.1.saturating_sub(1);
 
         // Draw only when something changed: first frame, any input or resize event,
         // or an applied highlight. Idle writes nothing to the terminal.
         let mut dirty = true;
         loop {
             terminal_size = crossterm::terminal::size()?;
-            self.state.viewport_height = terminal_size.1.saturating_sub(2);
+            // Document rows: everything above the 1-row status bar.
+            self.state.viewport_height = terminal_size.1.saturating_sub(1);
             if dirty {
                 terminal.draw(|f| self.ui.render(f, &self.state))?;
                 dirty = false;

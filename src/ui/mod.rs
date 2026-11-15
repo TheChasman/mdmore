@@ -180,8 +180,9 @@ impl Ui {
             .unwrap_or_else(|| "unknown".to_string());
 
         let line_count = state.current_document.rendered.lines.len();
-        let visible_end = (state.scroll_offset as usize + area.height as usize).min(line_count);
-        
+        let (visible_start, visible_end) =
+            visible_range(state.scroll_offset as usize, state.viewport_height as usize, line_count);
+
         let cursor_info = if let Some(c) = state.cursor_line {
             format!(" | Cursor: {}", c + 1)
         } else {
@@ -195,7 +196,7 @@ impl Ui {
         } else {
             format!("{} | {}-{}/{} lines{} | Mode: {:?}", 
             file_name,
-            state.scroll_offset as usize + 1,
+            visible_start,
             visible_end,
             line_count,
             cursor_info,
@@ -209,6 +210,12 @@ impl Ui {
 
         f.render_widget(paragraph, area);
     }
+}
+
+/// 1-based inclusive range of document lines shown in a `viewport`-row view.
+fn visible_range(scroll: usize, viewport: usize, total: usize) -> (usize, usize) {
+    let end = (scroll + viewport).min(total);
+    ((scroll + 1).min(end), end)
 }
 
 /// Splits `line` so the char ranges in `ranges` carry `Modifier::REVERSED`.
@@ -239,4 +246,18 @@ fn highlight_ranges(line: &Line<'static>, ranges: &[(usize, usize)]) -> Line<'st
         pos = end;
     }
     Line::from(out)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn visible_range_uses_viewport() {
+        assert_eq!(visible_range(0, 38, 85), (1, 38));
+        assert_eq!(visible_range(35, 38, 85), (36, 73));
+        assert_eq!(visible_range(60, 38, 85), (61, 85));
+        assert_eq!(visible_range(0, 38, 10), (1, 10));
+        assert_eq!(visible_range(0, 38, 0), (0, 0));
+    }
 }
