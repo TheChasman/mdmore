@@ -1,12 +1,6 @@
-mod app;
-mod document;
-mod fetch;
-mod storage;
-mod ui;
-mod version;
-
 use anyhow::{anyhow, Result};
 use clap::{Parser, Subcommand};
+use frogrust::{app, version};
 use std::path::PathBuf;
 
 #[derive(Parser)]
