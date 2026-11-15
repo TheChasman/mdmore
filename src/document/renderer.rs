@@ -68,7 +68,16 @@ pub fn render_with_base(
         images: vec![],
     };
 
-    for block in blocks {
+    use crate::document::parser::Block;
+    for (i, block) in blocks.iter().enumerate() {
+        // One blank line between top-level blocks; code blocks pad themselves.
+        let is_code = matches!(block, Block::CodeBlock { .. });
+        let after_code = i > 0 && matches!(blocks[i - 1], Block::CodeBlock { .. });
+        if is_code && after_code {
+            doc.lines.pop(); // the previous block's trailing blank; this one adds its own
+        } else if i > 0 && !is_code && !after_code {
+            doc.lines.push(Line::from(""));
+        }
         render_block(block, &mut doc, 0, highlight, max_width, base_dir);
     }
 
@@ -386,6 +395,35 @@ mod tests {
         assert_eq!(doc.lines.len(), 12);
     }
     use crate::document::parser;
+
+    fn texts(doc: &RenderedDoc) -> Vec<String> {
+        doc.lines.iter().map(|l| l.spans.iter().map(|s| s.content.to_string()).collect()).collect()
+    }
+
+    #[test]
+    fn one_blank_line_between_top_level_blocks() {
+        let doc = render_with(&parser::parse("# H\n\npara\n\n> quote\n\n| a |\n|---|\n| 1 |"), false, None);
+        assert_eq!(texts(&doc), vec!["H", "", "para", "", "│ quote", "", "a", "─", "1"]);
+        assert_eq!(doc.headings[0].line, 0);
+    }
+
+    #[test]
+    fn code_blocks_are_not_double_spaced() {
+        let doc = render_with(&parser::parse("para\n\n```\nx\n```\n\nafter"), false, None);
+        assert_eq!(texts(&doc), vec!["para", "", "```", "x", "```", "", "after"]);
+    }
+
+    #[test]
+    fn consecutive_code_blocks_share_one_blank() {
+        let doc = render_with(&parser::parse("```\na\n```\n\n```\nb\n```"), false, None);
+        assert_eq!(texts(&doc), vec!["", "```", "a", "```", "", "```", "b", "```", ""]);
+    }
+
+    #[test]
+    fn tight_list_stays_tight() {
+        let doc = render_with(&parser::parse("- a\n- b\n\npara"), false, None);
+        assert_eq!(texts(&doc), vec!["• a", "• b", "", "para"]);
+    }
 
     #[test]
     fn renders_heading() {
