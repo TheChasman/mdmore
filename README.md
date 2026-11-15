@@ -1,24 +1,52 @@
-# FrogRust - Markdown Viewer
+# FrogRust
 
-A terminal-based Markdown viewer built in Rust.
-
-## Features
-
-- Syntax highlighting for Markdown
-- Cursor-based navigation
-- Link following
-- Table of Contents
-
-## Usage
+`more` for Markdown, with syntax highlighting. A single fast Rust binary for reading Markdown in your terminal.
 
 ```bash
-cargo run --release -- <file.md>
+frogrust README.md      # read it rendered, press q to quit
 ```
 
-## Install (macOS)
+Scope, priorities and decisions live in the PRD: [`docs/FrogRust_PRD.md`](docs/FrogRust_PRD.md).
+
+## Status
+
+| | |
+|---|---|
+| Rendered Markdown (headings, emphasis, lists, tables, quotes, links) | ✅ |
+| Pager scrolling, TOC sidebar, follow local links, back/forward | ✅ |
+| `--version` (JSON: version, environment, commit) | ✅ |
+| **Syntax highlighting in code blocks**, the point of FrogRust | ⏳ next |
+| Reading from stdin (`cat x.md \| frogrust`) | ⏳ planned |
+| Search (`/`, `n`, `N`) | ⏳ planned |
+
+## Install
+
+```bash
+cargo install --path .    # installs frogrust into ~/.cargo/bin
+```
+
+Build natively on each machine (Apple Silicon or Intel; no cross-compiling).
+
+### Optional: macOS app bundle
 
 ```bash
 scripts/deploy-mac.sh
 ```
 
-Builds a native release binary and installs `~/Applications/FrogRust.app` using the icon in `artwork/icon/`. FrogRust appears in Finder's **Open With** menu for `.md` files and accepts files dropped on its icon; launched on its own it asks for a file. Each file opens in a new Terminal window that runs FrogRust directly, skipping your shell startup. The plain binary is at `~/Applications/FrogRust.app/Contents/MacOS/frogrust`.
+Installs `~/Applications/FrogRust.app` with the icon in `artwork/icon/`. It appears in Finder's **Open With** menu for `.md` files and opens each file in a Terminal window that runs FrogRust directly, skipping your shell startup. It's a convenience; FrogRust is a terminal pager.
+
+## Keys
+
+| Key | Action |
+|---|---|
+| `j` / `k` | Scroll down / up a line |
+| `↓` / `↑` | Move the line cursor (or the TOC selection when the TOC is open) |
+| `space`, `PageDown` / `PageUp` | Page down / up |
+| `gg`, `G` | Jump to start / end |
+| `←` / `→` | Previous / next link (with the cursor active) |
+| `Enter` | Follow the link under the cursor, or jump to the selected TOC heading |
+| `t` | Toggle the table of contents |
+| `b` / `f` | Back / forward between followed links |
+| `q` | Quit |
+
+`b` currently means *back*. In `less` it means page up, and the PRD proposes switching to that.

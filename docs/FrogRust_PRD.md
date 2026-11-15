@@ -1,200 +1,140 @@
 # FrogRust — Product Requirements Document
 
 ## Overview
-FrogRust is a terminal Markdown browser and viewer, written in Rust. A single-binary replacement for the Python Frogmouth, solving the dependency-rot and slow-startup problems. Fast, reliable, no runtime dependencies.
 
-**Philosophy:** Compilation, small, fast.
+**FrogRust is `more` for Markdown, with syntax highlighting.** From a shell you type `frogrust README.md`, read the document rendered (headings, emphasis, lists, tables, links) with **language-aware syntax highlighting in its code blocks**, press `q`, and you're back at your prompt.
 
----
+It started from one question: *"Is there a version of the pager `more` for Markdown?"* It's a single Rust binary that starts instantly and has no runtime to rot.
 
-## MVP Features (Priority Order)
+**Philosophy:** Compilation, small, fast. A pager first; anything that doesn't serve reading a file from the terminal is out of scope.
 
-### Tier 1: Minimum Viable (First Build)
-1. **Open and render local .md files** — Display Markdown with syntax highlighting, links, bold, italic, code blocks, headings, lists.
-2. **Navigate within a document** — Arrow keys, Page Up/Down, `j`/`k`, `space` to scroll. `gg` / `G` to jump to start/end.
-3. **Table of Contents (TOC)** — Auto-extract headings from document. Sidebar toggle (`t`). Jump to heading via keyboard or mouse click.
-4. **Back/Forward navigation** — History stack (not persisted yet). `b` and `f` keys.
-5. **Quit cleanly** — `q` to exit, restore terminal state.
+**USP:** the syntax highlighting. `less` and `more` show raw Markdown, and most terminal renderers show code blocks in a single colour. FrogRust aims for highlighting as good as [`bat`](https://github.com/sharkdp/bat), which also uses syntect, inside properly rendered Markdown.
 
-### Tier 2: Essential (Second Sprint)
-6. **Follow links** — Click or `Enter` on a link to open a new document (local path or remote URL).
-7. **Address bar** — `:` to open input field. Type path or URL, press `Enter`. Autocomplete local paths.
-8. **GitHub shorthand** — `gh owner/repo` syntax to fetch README from GitHub (requires `reqwest` + async).
-9. **Persistent bookmarks** — `m` to bookmark current page. Store as JSON in `~/.local/share/frogrust/bookmarks.json`. Load on startup.
-10. **Persistent history** — Every visited document is logged. Search/reopen from history pane (available in Tier 3).
+### Where it's used
 
-### Tier 3: Polish (Third Sprint)
-11. **History sidebar** — Navigable list of visited documents. Search within history.
-12. **Local file browser** — Browse filesystem without leaving app. Preview .md files, open with `Enter`.
-13. **Syntax highlighting in code blocks** — Use `syntect` for fenced code blocks (language-aware).
-14. **Light/dark theme toggle** — Respect system terminal palette; toggle with keyboard.
-15. **Sixel/Kitty image support** — Render inline images in terminals that support it; fall back to alt-text.
+- **Primary:** in a terminal, locally or over SSH. It runs where you already are and leaves nothing behind when you quit.
+- **Secondary:** `scripts/deploy-mac.sh` also builds a macOS app bundle that appears in Finder's Open With and opens the file in a Terminal window. It's a convenience; the terminal is home.
+
+### Prior art
+
+| Tool | What we take | What we leave |
+|---|---|---|
+| `less` / `more` | Muscle memory: keys, `q` to quit, `/` search, reading stdin | Raw text only |
+| [`bat`](https://github.com/sharkdp/bat) | The bar for highlighting quality (syntect grammars and themes) | It highlights source; it doesn't render Markdown |
+| [`glow`](https://github.com/charmbracelet/glow) | A fast single-binary terminal Markdown renderer with a pager | Its file-picker/stash features |
+| [Frogmouth](https://github.com/Textualize/frogmouth) | The original inspiration: in-document TOC and following local links | Its browser shape: address bar/omnibox, remote URLs, GitHub shorthand, bookmarks, history panes, file browser. Frogmouth has been dormant since 2024 (last release v0.9.1, Nov 2023) |
+
+> **History:** FrogRust was first specified (May 2026) as a Rust port of Frogmouth's *browser*. That's why the original Tier 2/3 lists below were dropped. In November 2026 we tried, and reversed, a pivot to a Finder GUI app. The owner confirmed the original intent: a pager with syntax highlighting. The May spec and plan in `docs/superpowers/` record the browser-era MVP that is already built.
 
 ---
 
-## Data Model & Architecture
+## Status (2026-11-15)
 
-### Module Structure
+**Built:** rendering of headings, paragraphs, bold, italic, inline code, code blocks (uncoloured), block quotes, lists, rules, tables and links. Scrolling, a line/link cursor, a TOC sidebar, following local links, back/forward, and `--version` JSON.
+
+**Not built: syntax highlighting.** The parser already records each fenced block's language (`Block::CodeBlock { lang, code }`), so the hook exists, but nothing colours the code yet. syntect was declared in `Cargo.toml` but never called; it was removed as unused and gets re-added with this work.
+
+---
+
+## Requirements
+
+### Tier 1 — The pager (next)
+
+1. **Syntax-highlighted code blocks** *(the USP; not built)*. Use syntect with the fence's info string (` ```rust `) to choose the grammar. Unknown or missing languages fall back to plain code styling. The colours must stay readable on both light and dark terminals.
+2. **Open and render a local `.md` file** *(built)*. `frogrust FILE` renders headings, emphasis, inline code, lists, tables, quotes, rules and links.
+3. **Pager movement with `less` muscle memory** *(mostly built)*. `j`/`k` and arrow keys scroll by a line, `space`/`PageDown` go down a page, `PageUp` goes up a page, and `g`/`gg` and `G` jump to the start and end.
+4. **Read from stdin** *(not built)*. `cat notes.md | frogrust` and `frogrust -` both work, as with `less`. The keys still work when stdin is a pipe (read them from the terminal device).
+5. **Quit cleanly** *(built)*. `q` exits and restores the terminal: no leftover text, cursor visible.
+
+### Tier 2 — Comfortable reading
+
+6. **Search** *(not built)*. `/pattern`, then `n`/`N` for the next/previous match, highlighting matches as `less` does.
+7. **Table of contents** *(built)*. `t` toggles a heading sidebar, and `Enter` jumps to the selected heading.
+8. **Follow local links and go back/forward** *(built)*. Kept because it's cheap and already works, but it stays local-only.
+9. **Highlighting themes** *(not built)*. A sensible default for light and dark terminals, with an option to choose a syntect theme.
+10. **Plain output when not a terminal** *(not built)*. If stdout isn't a TTY (for example `frogrust x.md | head`), print the rendered text and exit instead of starting the interactive pager, as `bat` does.
+
+### Tier 3 — Nice to have
+
+11. **Exit if it fits on one screen** (like `less -F`).
+12. **Inline images** in terminals that support Kitty or Sixel graphics, falling back to the alt text.
+
+### Dropped (browser-era features)
+
+These came from Frogmouth's browser shape and don't serve a pager. **Do not build them:**
+- the address bar / omnibox (`:`; it exists in the code today and should be removed);
+- remote URL fetching and GitHub shorthand;
+- persistent bookmarks and history, the history sidebar, and a local file browser.
+
+### Open decisions
+
+- **`b` key.** In `less`, `b` means page up; in FrogRust it currently means *back*. For a pager, `less` habits should win. *Proposal:* `b` = page up, and *back* moves to `Backspace`. This needs the owner's confirmation before it changes.
+
+### Known issues
+
+- In the address bar, the letters `q j k b f g G t` and space are taken as commands instead of typed, and `q` quits. It will be resolved by removing the address bar (see Dropped).
+
+---
+
+## Architecture (as built)
+
 ```
 src/
-  main.rs                 — Entry point, CLI arg parsing (clap)
+  main.rs            — clap CLI: FILE, -V/--version, `version` subcommand
+  lib.rs             — module root (the binary imports frogrust::{app, version})
+  version.rs         — {"version","environment","commit"} JSON (commit stamped by build.rs)
   app/
-    state.rs             — AppState (modes, nav stack, current doc)
-    event.rs             — Input and async task events (crossbeam channels)
+    mod.rs           — App: terminal setup/teardown, key-handling event loop
+    state.rs         — AppState: scroll, cursor, TOC, nav stack (pure, unit-tested)
   document/
-    model.rs             — Document struct (path/url, content, AST)
-    parser.rs            — pulldown-cmark → internal AST + metadata (headings, links)
-    renderer.rs          — AST → Ratatui widget tree (Paragraph, Table, etc.)
-  fetch/
-    http.rs              — reqwest + tokio, GitHub shorthand resolver
-    local.rs             — Read local files, Path validation
-  storage/
-    bookmarks.rs         — JSON persistence of bookmarks
-    history.rs           — JSON persistence of history (optional for MVP)
-  ui/
-    layout.rs            — Ratatui frame layout (main doc + sidebars)
-    widgets.rs           — Custom widgets (TOC sidebar, address bar, status line)
-    events.rs            — Keyboard/mouse input handling
+    mod.rs           — Document::from_file → parse → render
+    parser.rs        — pulldown-cmark events → Block/Inline AST (CodeBlock keeps `lang`)
+    renderer.rs      — AST → display lines + link and heading indices
+  ui/mod.rs          — ratatui view of AppState (document, TOC, status bar)
+  fetch/, storage/   — placeholders from the browser era; storage (bookmarks) is dropped
 ```
 
-### Data Flow (Text Diagram)
-```
-User Input (keyboard/mouse)
-    ↓
-Event Loop (crossterm + ratatui)
-    ↓
-  ├→ Local input (navigation, quit, bookmark)
-    │   → AppState update
-    │   → Re-render UI
-    │
-  └→ Async trigger (open link, fetch URL, GitHub shorthand)
-      → Spawn tokio task (fetch/parse)
-      → Send result via channel
-      → Event loop receives, updates AppState
-      → Re-render UI
+**Pipeline:** file (or stdin, once Tier 1 lands) → parser → AST → renderer → lines → ratatui. Syntax highlighting belongs in the **renderer**: turn each `CodeBlock { lang, code }` into styled spans with syntect. That keeps the parser semantic and the UI dumb.
 
-Document Pipeline:
-  Location (path/URL) → Fetcher → Raw content → Parser (pulldown-cmark) 
-    → AST + metadata → Renderer → Ratatui widgets → Terminal
-```
+**Concurrency:** documents are local and load almost instantly, so loading runs inline. The browser-era design (background tokio tasks plus channels for HTTP fetches) is **not needed**, because remote fetching is dropped. tokio is only used for file reads now and could be removed.
 
 ---
 
-## State Machine
+## Success Criteria
 
-```rust
-enum AppMode {
-    Reading,         // Displaying document, waiting for nav input
-    AddressBar,      // User typing in address bar (:)
-    BookmarkSave,    // Save current doc as bookmark (m)
-    History,         // Browse history sidebar (open/search)
-    TOC,             // TOC sidebar visible (toggle with t)
-    Error,           // Display error message (e.g., fetch failed)
-}
+FrogRust is a pager worth using when:
 
-enum Location {
-    Local(PathBuf),
-    Remote(Url),
-    GitHub { owner: String, repo: String, path: Option<String> },
-}
-
-struct AppState {
-    mode: AppMode,
-    current_location: Location,
-    current_document: Document,
-    nav_stack: Vec<Location>,      // Back/forward history
-    bookmarks: Vec<Bookmark>,      // Loaded from disk
-    toc_visible: bool,
-    address_input: String,         // User's typed input
-    error_message: Option<String>, // Transient error to display
-}
-```
-
-Valid transitions:
-- `Reading → AddressBar` (`:` key)
-- `Reading → TOC` (`t` key, toggle)
-- `Reading → BookmarkSave` (`m` key)
-- `AddressBar → Reading` (on `Enter` or `Esc`)
-- `Error → Reading` (after timeout or key press)
-- Any mode → `Reading` on successful nav or `Esc`
+1. `frogrust README.md` opens within 100 ms on an Apple Silicon Mac and shows the rendered document.
+2. Fenced code blocks in common languages (Rust, Python, shell, TypeScript, JSON, YAML, TOML) are highlighted correctly, and unknown languages degrade to plain code styling.
+3. `cat file.md | frogrust` works.
+4. The `less` keys work: `j k space PageUp PageDown g G q`, plus `/ n N` from Tier 2.
+5. `q` leaves the terminal exactly as it was.
+6. Errors (missing file, unreadable input) give a clear message and a non-zero exit, with no panic.
+7. It's a single native binary per machine: aarch64 on Apple Silicon, x86_64 on Intel.
 
 ---
 
-## Async & Threading Model
-
-**Critical:** Single UI thread drives ratatui. HTTP fetches happen off-thread.
-
-```
-Main thread (UI loop):
-  - Runs crossterm event loop
-  - Polls for user input
-  - Renders Ratatui to terminal
-  - Polls channel for fetch results
-  - Updates AppState
-  - No blocking I/O
-
-Background task (tokio spawn):
-  - Fetch HTTP / read file
-  - Parse Markdown
-  - Send result back via crossbeam::channel
-  - Exits
-
-Channels:
-  - `tx_fetch` / `rx_fetch`: UI → fetch task (new location to open)
-  - `tx_result` / `rx_result`: fetch task → UI (document ready or error)
-```
-
-**No async/await in UI code.** Use `tokio::spawn_blocking` for file I/O if needed; prefer non-blocking.
-
----
-
-## Success Criteria (MVP Definition)
-
-A working FrogRust can:
-
-1. ✅ Open `frogrust path/to/README.md` and render it.
-2. ✅ Navigate within the document (scroll, jump, TOC).
-3. ✅ Click or press `Enter` on a link to open a new local file.
-4. ✅ Go back/forward through history.
-5. ✅ Quit with `q` and restore terminal cleanly (no junk text, cursor visible).
-6. ✅ Handle errors gracefully (file not found, malformed Markdown, etc.) without crashing.
-7. ✅ Single binary, no runtime deps (Rust compile-time linking only).
-
-**Not required for MVP:**
-- Remote URLs or GitHub fetching (Tier 2).
-- Persistent bookmarks or history (Tier 2–3).
-- Image rendering.
-- Mouse clicks (keyboard nav is sufficient).
-
----
-
-## Key Dependencies (Cargo.toml)
+## Key Dependencies
 
 ```toml
-ratatui = "0.28"           # TUI framework
-crossterm = "0.28"         # Terminal backend
-pulldown-cmark = "0.11"    # Markdown parser
-syntect = "5.1"            # Syntax highlighting
-tokio = { version = "1", features = ["full"] }
-reqwest = { version = "0.11", features = ["json"] }
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
-url = "2"
+ratatui = "0.28"          # terminal UI
+crossterm = "0.28"        # terminal backend
+pulldown-cmark = "0.11"   # Markdown parser
+syntect = "5"             # syntax highlighting (to re-add with Tier 1 #1)
 clap = { version = "4", features = ["derive"] }
-crossbeam = "0.8"          # Channels
-anyhow = "1"               # Error handling
-directories = "5"          # XDG paths
+anyhow = "1"
+serde = { version = "1", features = ["derive"] }   # version JSON
+serde_json = "1"
+tokio = { version = "1", features = ["full"] }     # file reads only; removal candidate
 ```
 
 ---
 
 ## Deliverables
 
-- Runnable binary (`cargo build --release`).
-- Renders local Markdown correctly.
-- Responsive UI (no jank on resize).
-- Exits cleanly.
-- Code is modular and readable (for iteration).
+- `cargo install --path .` puts `frogrust` on your PATH (`~/.cargo/bin`, on PATH on both Macs).
+- `scripts/deploy-mac.sh` optionally installs the macOS app bundle for Finder's Open With.
+- Readable, modular code with the navigation logic unit-tested.
 
 ---
 
@@ -203,5 +143,6 @@ directories = "5"          # XDG paths
 - Prioritise correctness and clarity over micro-optimisations.
 - If a design choice is ambiguous, ask. Don't guess.
 - Favour Rust idioms (Result, Option, iterators) over imperative loops.
-- Use `anyhow` for error propagation; surface errors to UI, don't panic.
-- Test locally on an Apple Silicon Mac. Should compile in <30s, startup <100ms.
+- Use `anyhow` for error propagation; surface errors to the UI, don't panic.
+- Build natively on each machine (aarch64 on Apple Silicon, x86_64 on Intel). Target: compile in under 30 s, start in under 100 ms.
+- Before adding a feature, ask: does this help someone reading a file in a terminal? If it only makes sense in a browser, it's out of scope.

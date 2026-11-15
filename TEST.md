@@ -1,48 +1,84 @@
 # FrogRust Test Document
 
-This is a test markdown file for FrogRust.
+A sample file for checking FrogRust by eye: `frogrust TEST.md`.
 
 ## Introduction
 
-FrogRust is a terminal Markdown browser written in Rust.
+FrogRust is `more` for Markdown, with syntax highlighting: a fast pager for reading Markdown in the terminal.
 
-### Features
+### What to check
 
-- Fast startup
-- No dependencies
-- Terminal UI with ratatui
-- Syntax highlighting support
-- Table of contents sidebar
+- Headings, **bold**, *italic* and `inline code` render
+- Lists, tables, quotes and rules render
+- Fenced code blocks below are coloured by language (not built yet; they show as plain code until syntax highlighting lands)
+- An unknown language falls back to plain code styling
 
-## Quick Start
+## Code blocks
 
-To build FrogRust:
+```rust
+fn main() {
+    let name = "FrogRust";
+    println!("Hello from {name}!");
+}
+```
+
+```python
+def greet(name: str) -> str:
+    return f"Hello from {name}!"
+```
 
 ```bash
-cargo build --release
-./target/release/frogrust TEST.md
+cargo install --path .
+frogrust TEST.md
 ```
+
+```typescript
+const greet = (name: string): string => `Hello from ${name}!`;
+```
+
+```json
+{ "version": "0.1.0", "environment": "unknown", "commit": "abc1234" }
+```
+
+```toml
+[package]
+name = "frogrust"
+version = "0.1.0"
+```
+
+```nosuchlanguage
+This block names a language FrogRust doesn't know, so it should fall back to plain code.
+```
+
+```
+This block names no language at all.
+```
+
+## Other blocks
+
+> A block quote, to check indentation and styling.
+
+| Key | Action |
+|---|---|
+| `j` / `k` | Scroll down / up |
+| `space` | Page down |
+| `q` | Quit |
+
+---
 
 ## Navigation
 
-Use the following keys to navigate:
+- `j` / `k` scroll a line; `↓` / `↑` move the line cursor
+- `space` / `PageDown` page down; `PageUp` page up
+- `gg` jumps to the start; `G` to the end
+- `t` toggles the table of contents
+- `←` / `→` move between links; `Enter` follows one
+- `b` / `f` go back / forward
+- `q` quits
 
-- `j` or `↓` - Scroll down
-- `k` or `↑` - Scroll up
-- `space` - Page down
-- `Page Down` - Page down
-- `Page Up` - Page up
-- `gg` - Jump to start
-- `G` - Jump to end
-- `t` - Toggle TOC sidebar
-- `b` - Go back
-- `f` - Go forward
-- `:` - Open address bar
-- `q` - Quit
+## More content
 
-## More Content
-
-This is additional content to test scrolling.
+Lines to test scrolling.
 
 Line 1
 Line 2
@@ -70,6 +106,6 @@ Line 23
 Line 24
 Line 25
 
-## Conclusion
+## End
 
-FrogRust MVP is complete!
+If you can read this, scrolling to the end works.
