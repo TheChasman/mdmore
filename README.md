@@ -21,4 +21,4 @@ cargo run --release -- <file.md>
 scripts/deploy-mac.sh
 ```
 
-Builds a native release binary and installs `~/Applications/FrogRust.app` using the icon in `artwork/icon/`. Opening the app asks for a Markdown file and shows it in Terminal. The plain binary is at `~/Applications/FrogRust.app/Contents/MacOS/frogrust`.
+Builds a native release binary and installs `~/Applications/FrogRust.app` using the icon in `artwork/icon/`. FrogRust appears in Finder's **Open With** menu for `.md` files and accepts files dropped on its icon; launched on its own it asks for a file. Each file opens in a new Terminal window that runs FrogRust directly, skipping your shell startup. The plain binary is at `~/Applications/FrogRust.app/Contents/MacOS/frogrust`.
