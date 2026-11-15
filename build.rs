@@ -1,28 +1,31 @@
 use std::process::Command;
 
+fn git(args: &[&str]) -> Option<String> {
+    let out = Command::new("git").args(args).output().ok()?;
+    if !out.status.success() {
+        return None;
+    }
+    let s = String::from_utf8(out.stdout).ok()?.trim().to_string();
+    (!s.is_empty()).then_some(s)
+}
+
 // Stamp the short git commit into the binary as FROGRUST_COMMIT.
 // Left unset (reported as "unknown") when git or the repo isn't available.
 fn main() {
-    let commit = Command::new("git")
-        .args(["rev-parse", "--short", "HEAD"])
-        .output()
-        .ok()
-        .filter(|o| o.status.success())
-        .and_then(|o| String::from_utf8(o.stdout).ok())
-        .map(|s| s.trim().to_string())
-        .filter(|s| !s.is_empty());
-
-    if let Some(commit) = commit {
+    if let Some(commit) = git(&["rev-parse", "--short", "HEAD"]) {
         println!("cargo:rustc-env=FROGRUST_COMMIT={commit}");
     }
 
-    // Worktrees keep HEAD outside ./.git, so ask git where it lives.
-    if let Some(head) = Command::new("git")
-        .args(["rev-parse", "--git-path", "HEAD"])
-        .output()
-        .ok()
-        .and_then(|o| String::from_utf8(o.stdout).ok())
-    {
-        println!("cargo:rerun-if-changed={}", head.trim());
+    // Rebuild when the commit moves. HEAD only changes on checkout; a new commit
+    // on a branch updates the branch ref (or packed-refs) instead. --git-path
+    // resolves these correctly inside worktrees too.
+    let mut watch = vec!["HEAD".to_string(), "packed-refs".to_string()];
+    if let Some(branch_ref) = git(&["symbolic-ref", "-q", "HEAD"]) {
+        watch.push(branch_ref);
+    }
+    for name in watch {
+        if let Some(path) = git(&["rev-parse", "--git-path", &name]) {
+            println!("cargo:rerun-if-changed={path}");
+        }
     }
 }
