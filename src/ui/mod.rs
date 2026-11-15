@@ -33,17 +33,7 @@ impl Ui {
     }
 
     pub fn render(&mut self, f: &mut Frame, state: &AppState) {
-        let chunks = if state.toc_visible {
-            Layout::default()
-                .direction(Direction::Horizontal)
-                .constraints([Constraint::Percentage(30), Constraint::Percentage(70)])
-                .split(f.area())
-        } else {
-            Layout::default()
-                .direction(Direction::Horizontal)
-                .constraints([Constraint::Percentage(100)])
-                .split(f.area())
-        };
+        let chunks = split_columns(f.area(), state.toc_visible);
 
         let main_area = chunks[chunks.len() - 1];
         let content_chunks = Layout::default()
@@ -212,6 +202,25 @@ impl Ui {
     }
 }
 
+/// Horizontal split: [TOC, text] when the TOC is visible, else [text].
+fn split_columns(area: Rect, toc_visible: bool) -> std::rc::Rc<[Rect]> {
+    let constraints: &[Constraint] = if toc_visible {
+        &[Constraint::Percentage(30), Constraint::Percentage(70)]
+    } else {
+        &[Constraint::Percentage(100)]
+    };
+    Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints(constraints)
+        .split(area)
+}
+
+/// Width of the document text area for a `cols`-wide terminal (same split as `render`).
+pub fn text_area_width(cols: u16, toc_visible: bool) -> u16 {
+    let chunks = split_columns(Rect::new(0, 0, cols, 1), toc_visible);
+    chunks[chunks.len() - 1].width
+}
+
 /// 1-based inclusive range of document lines shown in a `viewport`-row view.
 fn visible_range(scroll: usize, viewport: usize, total: usize) -> (usize, usize) {
     let end = (scroll + viewport).min(total);
@@ -251,6 +260,19 @@ fn highlight_ranges(line: &Line<'static>, ranges: &[(usize, usize)]) -> Line<'st
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn wrapped_lines_fit_text_area_with_toc_open() {
+        let w = text_area_width(80, true);
+        assert!(w < 80);
+        assert_eq!(text_area_width(80, false), 80);
+        let src = "word ".repeat(100) + "\n\n> " + &"quote ".repeat(40) + "\n\n- " + &"item ".repeat(40);
+        let doc = crate::document::Document::from_source(src, std::path::PathBuf::from("t.md"), Some(w));
+        for l in &doc.rendered.lines {
+            let n: usize = l.spans.iter().map(|s| s.content.chars().count()).sum();
+            assert!(n <= w as usize, "line of {n} exceeds text area {w}");
+        }
+    }
 
     #[test]
     fn visible_range_uses_viewport() {

@@ -140,10 +140,11 @@ impl App {
             terminal_size = crossterm::terminal::size()?;
             // Document rows: everything above the 1-row status bar.
             self.state.viewport_height = terminal_size.1.saturating_sub(1);
-            // Wrap at the full terminal width (the TOC, when shown, overlays the
-            // left of the text). A width change bumps the generation, so the
-            // highlight below re-runs at the new width and stale results drop.
-            if self.state.set_render_width(Some(terminal_size.0)) {
+            // Wrap to the text area beside the TOC (when shown), using the UI's
+            // own split. A width change (resize or TOC toggle) bumps the
+            // generation, so the highlight re-runs and stale results drop.
+            let text_width = crate::ui::text_area_width(terminal_size.0, self.state.toc_visible);
+            if self.state.set_render_width(Some(text_width)) {
                 dirty = true;
             }
             if dirty {
