@@ -14,3 +14,11 @@ A terminal-based Markdown viewer built in Rust.
 ```bash
 cargo run --release -- <file.md>
 ```
+
+## Install (macOS)
+
+```bash
+scripts/deploy-mac.sh
+```
+
+Builds a native release binary and installs `~/Applications/FrogRust.app` using the icon in `artwork/icon/`. Opening the app asks for a Markdown file and shows it in Terminal. The plain binary is at `~/Applications/FrogRust.app/Contents/MacOS/frogrust`.
