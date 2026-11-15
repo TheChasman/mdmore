@@ -41,12 +41,10 @@ Installs `~/Applications/FrogRust.app` with the icon in `artwork/icon/`. It appe
 |---|---|
 | `j` / `k` | Scroll down / up a line |
 | `↓` / `↑` | Move the line cursor (or the TOC selection when the TOC is open) |
-| `space`, `PageDown` / `PageUp` | Page down / up |
+| `space`, `PageDown` / `b`, `PageUp` | Page down / up |
 | `gg`, `G` | Jump to start / end |
 | `←` / `→` | Previous / next link (with the cursor active) |
 | `Enter` | Follow the link under the cursor, or jump to the selected TOC heading |
 | `t` | Toggle the table of contents |
-| `b` / `f` | Back / forward between followed links |
+| `Backspace` / `f` | Back / forward between followed links |
 | `q` | Quit |
-
-`b` currently means *back*. In `less` it means page up, and the PRD proposes switching to that.

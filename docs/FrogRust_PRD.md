@@ -42,7 +42,7 @@ It started from one question: *"Is there a version of the pager `more` for Markd
 
 1. **Syntax-highlighted code blocks** *(the USP; built, but see the TypeScript startup cost in Known issues)*. Use syntect with the fence's info string (` ```rust `) to choose the grammar. Unknown or missing languages fall back to plain code styling. The colours must stay readable on both light and dark terminals.
 2. **Open and render a local `.md` file** *(built)*. `frogrust FILE` renders headings, emphasis, inline code, lists, tables, quotes, rules and links.
-3. **Pager movement with `less` muscle memory** *(mostly built)*. `j`/`k` and arrow keys scroll by a line, `space`/`PageDown` go down a page, `PageUp` goes up a page, and `g`/`gg` and `G` jump to the start and end.
+3. **Pager movement with `less` muscle memory** *(mostly built)*. `j`/`k` and arrow keys scroll by a line, `space`/`PageDown` go down a page, `b` and `PageUp` go up a page, and `g`/`gg` and `G` jump to the start and end.
 4. **Read from stdin** *(not built)*. `cat notes.md | frogrust` and `frogrust -` both work, as with `less`. The keys still work when stdin is a pipe (read them from the terminal device).
 5. **Quit cleanly** *(built)*. `q` exits and restores the terminal: no leftover text, cursor visible.
 
@@ -68,7 +68,7 @@ These came from Frogmouth's browser shape and don't serve a pager. **Do not buil
 
 ### Open decisions
 
-- **`b` key.** In `less`, `b` means page up; in FrogRust it currently means *back*. For a pager, `less` habits should win. *Proposal:* `b` = page up, and *back* moves to `Backspace`. This needs the owner's confirmation before it changes.
+- Resolved 2026-11-15: `b` = page up (less); back = `Backspace`.
 
 ### Known issues
 

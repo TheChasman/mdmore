@@ -102,7 +102,7 @@ impl App {
                         }
                         KeyCode::Char(' ') => self.state.page_down(),
                         KeyCode::PageDown => self.state.page_down(),
-                        KeyCode::Char('b') => self.state.go_back().await?,
+                        KeyCode::Char('b') => self.state.page_up(),
                         KeyCode::PageUp => self.state.page_up(),
                         KeyCode::Char('g') if matches!(key.modifiers, KeyModifiers::NONE) => {
                             if let Event::Key(next_key) = event::read()? {
@@ -121,6 +121,7 @@ impl App {
                         KeyCode::Backspace if self.state.is_address_bar_active() => {
                             self.state.address_input.pop();
                         }
+                        KeyCode::Backspace => self.state.go_back().await?,
                         KeyCode::Enter => {
                             if self.state.is_address_bar_active() {
                                 let input = self.state.address_input.clone();

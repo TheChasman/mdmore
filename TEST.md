@@ -69,11 +69,11 @@ This block names no language at all.
 ## Navigation
 
 - `j` / `k` scroll a line; `↓` / `↑` move the line cursor
-- `space` / `PageDown` page down; `PageUp` page up
+- `space` / `PageDown` page down; `b` / `PageUp` page up
 - `gg` jumps to the start; `G` to the end
 - `t` toggles the table of contents
 - `←` / `→` move between links; `Enter` follows one
-- `b` / `f` go back / forward
+- `Backspace` / `f` go back / forward
 - `q` quits
 
 ## More content
