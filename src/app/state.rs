@@ -4,7 +4,7 @@ use std::path::PathBuf;
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum AppMode {
     Reading,
-    AddressBar,
+    Search,
     Error,
 }
 
@@ -15,7 +15,11 @@ pub struct AppState {
     pub nav_stack: Vec<PathBuf>,
     pub nav_index: usize,
     pub toc_visible: bool,
-    pub address_input: String,
+    pub search_input: String,
+    pub search_pattern: Option<String>,
+    pub search_matches: Vec<(usize, usize, usize)>, // (line, char_start, char_end)
+    pub search_index: Option<usize>,
+    pub status_message: Option<String>,
     pub error_message: Option<String>,
     pub scroll_offset: u16,
     pub viewport_height: u16,
@@ -34,7 +38,11 @@ impl AppState {
             nav_stack: vec![location],
             nav_index: 0,
             toc_visible: false,
-            address_input: String::new(),
+            search_input: String::new(),
+            search_pattern: None,
+            search_matches: Vec::new(),
+            search_index: None,
+            status_message: None,
             error_message: None,
             scroll_offset: 0,
             viewport_height: 20,
@@ -96,6 +104,7 @@ impl AppState {
             self.current_location = path;
             self.current_document = doc;
             self.generation += 1;
+            self.clear_search();
             self.cursor_line = None;
             self.scroll_offset = 0;
         }
@@ -110,6 +119,7 @@ impl AppState {
             self.current_location = path;
             self.current_document = doc;
             self.generation += 1;
+            self.clear_search();
             self.cursor_line = None;
             self.scroll_offset = 0;
         }
@@ -123,21 +133,95 @@ impl AppState {
         self.current_location = location;
         self.current_document = document;
         self.generation += 1;
+        self.clear_search();
         self.cursor_line = None;
         self.scroll_offset = 0;
     }
 
-    pub fn enter_address_bar(&mut self) {
-        self.mode = AppMode::AddressBar;
-        self.address_input.clear();
+    pub fn enter_search(&mut self) {
+        self.mode = AppMode::Search;
+        self.search_input.clear();
     }
 
-    pub fn exit_address_bar(&mut self) {
+    fn clear_search(&mut self) {
+        self.search_pattern = None;
+        self.search_matches.clear();
+        self.search_index = None;
+    }
+
+    pub fn exit_search(&mut self) {
         self.mode = AppMode::Reading;
+        self.search_input.clear();
     }
 
-    pub fn is_address_bar_active(&self) -> bool {
-        self.mode == AppMode::AddressBar
+    /// Case-insensitive substring search over each line's plain text.
+    /// Plain text is identical before and after syntax highlighting.
+    /// Upgrade path: regex patterns, if ever wanted.
+    pub fn run_search(&mut self, pattern: &str) {
+        self.search_matches.clear();
+        self.search_index = None;
+        self.search_pattern = Some(pattern.to_string());
+        let needle: Vec<char> = pattern.chars().map(fold).collect();
+        if !needle.is_empty() {
+            for (i, line) in self.current_document.rendered.lines.iter().enumerate() {
+                let hay: Vec<char> = line
+                    .spans
+                    .iter()
+                    .flat_map(|s| s.content.chars())
+                    .map(fold)
+                    .collect();
+                let mut at = 0;
+                while at + needle.len() <= hay.len() {
+                    if hay[at..at + needle.len()] == needle[..] {
+                        self.search_matches.push((i, at, at + needle.len()));
+                        at += needle.len();
+                    } else {
+                        at += 1;
+                    }
+                }
+            }
+        }
+        if self.search_matches.is_empty() {
+            self.status_message = Some("Pattern not found".to_string());
+            return;
+        }
+        let top = self.scroll_offset as usize;
+        let first = self
+            .search_matches
+            .iter()
+            .position(|m| m.0 >= top)
+            .unwrap_or(0);
+        self.search_index = Some(first);
+        self.scroll_to_match(first);
+    }
+
+    pub fn search_next(&mut self) {
+        let n = self.search_matches.len();
+        if n == 0 {
+            return;
+        }
+        let i = self.search_index.map_or(0, |i| (i + 1) % n);
+        self.search_index = Some(i);
+        self.scroll_to_match(i);
+    }
+
+    pub fn search_prev(&mut self) {
+        let n = self.search_matches.len();
+        if n == 0 {
+            return;
+        }
+        let i = self.search_index.map_or(n - 1, |i| (i + n - 1) % n);
+        self.search_index = Some(i);
+        self.scroll_to_match(i);
+    }
+
+    fn scroll_to_match(&mut self, idx: usize) {
+        let line = self.search_matches[idx].0;
+        let top = self.scroll_offset as usize;
+        let h = self.viewport_height as usize;
+        if line < top || line >= top + h.max(1) {
+            self.scroll_offset = line.min(u16::MAX as usize) as u16;
+        }
     }
 
     pub fn cursor_down(&mut self) {
@@ -223,6 +307,10 @@ impl AppState {
     }
 }
 
+fn fold(c: char) -> char {
+    c.to_lowercase().next().unwrap_or(c)
+}
+
 /// Applies a background highlight result if it belongs to the current document.
 /// Replaces only the lines; links and headings are unchanged by highlighting.
 pub fn apply_highlight(state: &mut AppState, generation: u64, rendered: crate::document::RenderedDoc) -> bool {
@@ -248,6 +336,32 @@ mod tests {
             content,
             rendered,
         }
+    }
+
+    fn state_from(md: &str) -> AppState {
+        let doc = Document::from_source(md.to_string(), PathBuf::from("test.md"));
+        AppState::new(PathBuf::from("test.md"), doc)
+    }
+
+    #[test]
+    fn search_finds_and_cycles() {
+        let mut s = state_from("alpha\n\nbeta ALPHA\n\ngamma alpha");
+        s.run_search("alpha");
+        assert_eq!(s.search_matches.len(), 3);
+        assert_eq!(s.search_index, Some(0));
+        s.search_next(); assert_eq!(s.search_index, Some(1));
+        s.search_next(); s.search_next(); assert_eq!(s.search_index, Some(0)); // wraps
+        s.search_prev(); assert_eq!(s.search_index, Some(2));
+    }
+
+    #[test]
+    fn search_no_match() {
+        let mut s = state_from("alpha");
+        let before = s.scroll_offset;
+        s.run_search("zzz");
+        assert!(s.search_matches.is_empty());
+        assert_eq!(s.status_message.as_deref(), Some("Pattern not found"));
+        assert_eq!(s.scroll_offset, before);
     }
 
     #[test]

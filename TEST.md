@@ -79,6 +79,7 @@ A wide table with inline formatting:
 - `space` / `PageDown` page down; `b` / `PageUp` page up
 - `gg` jumps to the start; `G` to the end
 - `t` toggles the table of contents
+- `/` then text and `Enter` searches (case-insensitive); `n` / `N` jump to the next / previous match; `Esc` cancels
 - `←` / `→` move between links; `Enter` follows one
 - `Backspace` / `f` go back / forward
 - `q` quits

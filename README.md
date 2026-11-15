@@ -17,7 +17,7 @@ Scope, priorities and decisions live in the PRD: [`docs/FrogRust_PRD.md`](docs/F
 | `--version` (JSON: version, environment, commit) | ✅ |
 | **Syntax highlighting in code blocks**, the point of FrogRust | ✅ |
 | Reading from stdin (`cat x.md \| frogrust` / `frogrust -`) | ✅ |
-| Search (`/`, `n`, `N`) | ⏳ planned |
+| Search (`/`, `n`, `N`) | ✅ |
 
 ## Install
 
@@ -46,5 +46,6 @@ Installs `~/Applications/FrogRust.app` with the icon in `artwork/icon/`. It appe
 | `←` / `→` | Previous / next link (with the cursor active) |
 | `Enter` | Follow the link under the cursor, or jump to the selected TOC heading |
 | `t` | Toggle the table of contents |
+| `/` then text, `Enter` | Search (case-insensitive); `n` / `N` next / previous match; `Esc` cancels |
 | `Backspace` / `f` | Back / forward between followed links |
 | `q` | Quit |

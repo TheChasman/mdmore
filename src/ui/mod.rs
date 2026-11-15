@@ -3,7 +3,7 @@ use anyhow::Result;
 use crossterm::terminal::size;
 use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout, Rect},
-    style::{Color, Style},
+    style::{Color, Modifier, Style},
     text::{Line, Span},
     widgets::{Block, Borders, List, ListItem, Paragraph},
     Frame,
@@ -48,10 +48,6 @@ impl Ui {
         if state.toc_visible {
             self.render_toc(f, state, chunks[0]);
         }
-
-        if state.mode == crate::app::state::AppMode::AddressBar {
-            self.render_address_bar(f, state, main_area);
-        }
     }
 
     fn render_document(&self, f: &mut Frame, state: &AppState, area: Rect) {
@@ -80,7 +76,17 @@ impl Ui {
                         return Line::from(highlighted_spans);
                     }
                 }
-                line.clone()
+                let ranges: Vec<(usize, usize)> = state
+                    .search_matches
+                    .iter()
+                    .filter(|m| m.0 == absolute_line)
+                    .map(|m| (m.1, m.2))
+                    .collect();
+                if ranges.is_empty() {
+                    line.clone()
+                } else {
+                    highlight_ranges(line, &ranges)
+                }
             })
             .collect();
 
@@ -130,14 +136,20 @@ impl Ui {
             String::new()
         };
 
-        let status = format!("{} | {}-{}/{} lines{} | Mode: {:?}", 
+        let status = if state.mode == crate::app::state::AppMode::Search {
+            format!("/{}", state.search_input)
+        } else if let Some(msg) = &state.status_message {
+            msg.clone()
+        } else {
+            format!("{} | {}-{}/{} lines{} | Mode: {:?}", 
             file_name,
             state.scroll_offset as usize + 1,
             visible_end,
             line_count,
             cursor_info,
             state.mode
-        );
+            )
+        };
 
         let paragraph = Paragraph::new(status)
             .style(Style::default().bg(Color::DarkGray).fg(Color::White))
@@ -145,22 +157,34 @@ impl Ui {
 
         f.render_widget(paragraph, area);
     }
+}
 
-    fn render_address_bar(&self, f: &mut Frame, state: &AppState, area: Rect) {
-        let bar_height = 3;
-        let bar_area = Rect {
-            x: area.x,
-            y: area.y + area.height.saturating_sub(bar_height),
-            width: area.width,
-            height: bar_height,
+/// Splits `line` so the char ranges in `ranges` carry `Modifier::REVERSED`.
+fn highlight_ranges(line: &Line<'static>, ranges: &[(usize, usize)]) -> Line<'static> {
+    let mut out: Vec<Span<'static>> = Vec::new();
+    let mut pos = 0usize;
+    for span in &line.spans {
+        let chars: Vec<char> = span.content.chars().collect();
+        let (start, end) = (pos, pos + chars.len());
+        let mut cur = 0usize;
+        let push = |from: usize, to: usize, rev: bool, out: &mut Vec<Span<'static>>| {
+            if from < to {
+                let text: String = chars[from..to].iter().collect();
+                let style = if rev { span.style.add_modifier(Modifier::REVERSED) } else { span.style };
+                out.push(Span::styled(text, style));
+            }
         };
-
-        let prompt = "Enter path: ";
-        let content = format!("{}{}", prompt, state.address_input);
-        let paragraph = Paragraph::new(content)
-            .block(Block::default().borders(Borders::ALL).title("Address Bar"))
-            .style(Style::default().fg(Color::White).bg(Color::Black));
-
-        f.render_widget(paragraph, bar_area);
+        for &(ms, me) in ranges {
+            let (ms, me) = (ms.max(start), me.min(end));
+            if ms >= me {
+                continue;
+            }
+            push(cur, ms - start, false, &mut out);
+            push(ms - start, me - start, true, &mut out);
+            cur = me - start;
+        }
+        push(cur, chars.len(), false, &mut out);
+        pos = end;
     }
+    Line::from(out)
 }

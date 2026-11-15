@@ -48,7 +48,7 @@ It started from one question: *"Is there a version of the pager `more` for Markd
 
 ### Tier 2 — Comfortable reading
 
-6. **Search** *(not built)*. `/pattern`, then `n`/`N` for the next/previous match, highlighting matches as `less` does.
+6. **Search** *(built)*. `/pattern`, then `n`/`N` for the next/previous match, highlighting matches as `less` does.
 7. **Table of contents** *(built)*. `t` toggles a heading sidebar, and `Enter` jumps to the selected heading.
 8. **Follow local links and go back/forward** *(built)*. Kept because it's cheap and already works, but it stays local-only.
 9. **Highlighting themes** *(not built)*. A sensible default for light and dark terminals, with an option to choose a syntect theme.
@@ -62,7 +62,7 @@ It started from one question: *"Is there a version of the pager `more` for Markd
 ### Dropped (browser-era features)
 
 These came from Frogmouth's browser shape and don't serve a pager. **Do not build them:**
-- the address bar / omnibox (`:`; it exists in the code today and should be removed);
+- the address bar / omnibox (`:`) *(removed)*;
 - remote URL fetching and GitHub shorthand;
 - persistent bookmarks and history, the history sidebar, and a local file browser.
 
@@ -72,7 +72,7 @@ These came from Frogmouth's browser shape and don't serve a pager. **Do not buil
 
 ### Known issues
 
-- In the address bar, the letters `q j k b f g G t` and space are taken as commands instead of typed, and `q` quits. It will be resolved by removing the address bar (see Dropped).
+None.
 
 ---
 
