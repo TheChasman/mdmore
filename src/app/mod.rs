@@ -5,6 +5,7 @@ use crate::ui::Ui;
 use anyhow::Result;
 use crossterm::{
     execute,
+    cursor::Show,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
 use ratatui::prelude::*;
@@ -16,6 +17,8 @@ pub struct App {
     ui: Ui,
     /// Generation whose highlight job has been spawned (None = nothing spawned yet).
     highlight_spawned_for: Option<u64>,
+    /// Whether the image picker query has run (it runs at most once).
+    picker_tried: bool,
     highlight_tx: std::sync::mpsc::Sender<(u64, crate::document::RenderedDoc)>,
     highlight_rx: std::sync::mpsc::Receiver<(u64, crate::document::RenderedDoc)>,
 }
@@ -41,6 +44,31 @@ fn detect_picker() -> Option<ratatui_image::picker::Picker> {
     picker
 }
 
+/// Restores the terminal on drop: raw mode off, main screen, cursor shown. Errors are ignored.
+struct TerminalGuard;
+
+impl Drop for TerminalGuard {
+    fn drop(&mut self) {
+        restore_terminal();
+    }
+}
+
+/// Best-effort terminal restore, shared by the guard and the panic hook.
+pub fn restore_terminal() {
+    // Only touch the terminal if the pager set it up (print mode never enters raw mode).
+    if !crossterm::terminal::is_raw_mode_enabled().unwrap_or(false) {
+        return;
+    }
+    let _ = disable_raw_mode();
+    let _ = execute!(io::stdout(), LeaveAlternateScreen, Show);
+}
+
+/// True when the graphics picker should be set up now: not yet tried and the
+/// document has images. Documents without images never run the terminal query.
+fn needs_picker(tried: bool, doc: &Document) -> bool {
+    !tried && !doc.rendered.images.is_empty()
+}
+
 impl App {
     pub fn new(initial_path: PathBuf) -> Result<Self> {
         let document = Document::from_file(&initial_path)?;
@@ -60,6 +88,7 @@ impl App {
             state,
             ui,
             highlight_spawned_for: None,
+            picker_tried: false,
             highlight_tx,
             highlight_rx,
         })
@@ -67,21 +96,31 @@ impl App {
 
     pub fn run(&mut self) -> Result<()> {
         enable_raw_mode()?;
+        // From here on every exit path (error, early return, unwind) restores the terminal.
+        let _guard = TerminalGuard;
         let mut stdout = io::stdout();
         execute!(stdout, EnterAlternateScreen)?;
 
         let backend = CrosstermBackend::new(stdout);
         let mut terminal = Terminal::new(backend)?;
         terminal.clear()?;
+
+        self.event_loop(&mut terminal)
+    }
+
+    /// Runs the graphics query once, the first time a document with images is shown.
+    /// Returns true if the query ran.
+    fn ensure_picker(&mut self) -> Result<bool> {
+        if !needs_picker(self.picker_tried, &self.state.current_document) {
+            return Ok(false);
+        }
+        self.picker_tried = true;
         self.ui.picker = detect_picker();
-
-        let result = self.event_loop(&mut terminal);
-
-        disable_raw_mode()?;
-        execute!(terminal.backend_mut(), LeaveAlternateScreen)?;
-        terminal.show_cursor()?;
-
-        result
+        // A terminal that answered late can leave reply bytes queued as input; drop them.
+        while crossterm::event::poll(std::time::Duration::ZERO)? {
+            let _ = crossterm::event::read()?;
+        }
+        Ok(true)
     }
 
     fn event_loop(&mut self, terminal: &mut Terminal<CrosstermBackend<io::Stdout>>) -> Result<()> {
@@ -100,6 +139,11 @@ impl App {
             if dirty {
                 terminal.draw(|f| self.ui.render(f, &self.state))?;
                 dirty = false;
+            }
+            // After the frame, so a slow graphics query never delays the first paint
+            // (alt text shows until it finishes); redraw if it ran.
+            if self.ensure_picker()? {
+                dirty = true;
             }
 
             // Highlight just after the frame is on screen; never block on the job.
@@ -147,6 +191,10 @@ impl App {
                         }
                         continue;
                     }
+                    let plain_g = matches!(key.code, KeyCode::Char('g')) && key.modifiers == KeyModifiers::NONE;
+                    if !plain_g {
+                        self.state.pending_g = false;
+                    }
                     match key.code {
                         KeyCode::Char('q') => break,
                         KeyCode::Up => {
@@ -187,13 +235,7 @@ impl App {
                         KeyCode::PageDown => self.state.page_down(),
                         KeyCode::Char('b') => self.state.page_up(),
                         KeyCode::PageUp => self.state.page_up(),
-                        KeyCode::Char('g') if matches!(key.modifiers, KeyModifiers::NONE) => {
-                            if let Event::Key(next_key) = event::read()? {
-                                if matches!(next_key.code, KeyCode::Char('g')) {
-                                    self.state.jump_to_start();
-                                }
-                            }
-                        }
+                        KeyCode::Char('g') if plain_g => self.state.press_g(),
                         KeyCode::Char('G') => self.state.jump_to_end(),
                         KeyCode::Char('t') => self.state.toggle_toc(),
                         KeyCode::Char('f') => self.state.go_forward()?,
@@ -229,5 +271,20 @@ impl App {
         }
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn picker_only_for_documents_with_images() {
+        let plain = Document::from_source("# Hi\n\ntext".into(), PathBuf::from("x.md"));
+        let md = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("artwork/icon/x.md");
+        let with_img = Document::from_source("![alt](RustFrog.png)".into(), md);
+        assert!(!needs_picker(false, &plain));
+        assert!(needs_picker(false, &with_img));
+        assert!(!needs_picker(true, &with_img));
     }
 }

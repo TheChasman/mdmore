@@ -27,6 +27,8 @@ pub struct AppState {
     pub toc_cursor: usize,           // selected heading index when TOC visible
     pub generation: u64,             // increments on every document change
     pub stdin_document: Option<Document>, // set when the initial document came from stdin
+    /// A lone `g` was pressed; a second `g` jumps to the start, any other key clears it.
+    pub pending_g: bool,
 }
 
 impl AppState {
@@ -50,10 +52,11 @@ impl AppState {
             toc_cursor: 0,
             generation: 0,
             stdin_document: None,
+            pending_g: false,
         }
     }
 
-    fn load_location(&self, path: &PathBuf) -> anyhow::Result<Document> {
+    fn load_location(&self, path: &std::path::Path) -> anyhow::Result<Document> {
         if path.as_os_str() == STDIN_PATH {
             if let Some(doc) = &self.stdin_document {
                 return Ok(doc.clone());
@@ -80,6 +83,16 @@ impl AppState {
 
     pub fn page_up(&mut self) {
         self.scroll_offset = self.scroll_offset.saturating_sub(self.viewport_height);
+    }
+
+    /// Handles a plain `g`: the second of `gg` jumps to the start. Never blocks.
+    pub fn press_g(&mut self) {
+        if self.pending_g {
+            self.pending_g = false;
+            self.jump_to_start();
+        } else {
+            self.pending_g = true;
+        }
     }
 
     pub fn jump_to_start(&mut self) {
@@ -220,7 +233,8 @@ impl AppState {
         let top = self.scroll_offset as usize;
         let h = self.viewport_height as usize;
         if line < top || line >= top + h.max(1) {
-            self.scroll_offset = line.min(u16::MAX as usize) as u16;
+            let max_offset = self.current_document.rendered.lines.len().saturating_sub(h);
+            self.scroll_offset = line.min(max_offset).min(u16::MAX as usize) as u16;
         }
     }
 
@@ -393,6 +407,29 @@ mod tests {
         // Should be clamped
         let max_offset = line_count.saturating_sub(state.viewport_height);
         assert!(state.scroll_offset <= max_offset);
+    }
+
+    #[test]
+    fn gg_jumps_to_start_without_blocking() {
+        let mut state = AppState::new(PathBuf::from("test.md"), create_test_document());
+        state.scroll_offset = 3;
+        state.press_g();
+        assert!(state.pending_g);
+        assert_eq!(state.scroll_offset, 3);
+        state.press_g();
+        assert!(!state.pending_g);
+        assert_eq!(state.scroll_offset, 0);
+    }
+
+    #[test]
+    fn search_match_near_end_is_clamped() {
+        let src: String = (0..50).map(|i| format!("line{i}\n\n")).collect();
+        let doc = Document::from_source(src, PathBuf::from("t.md"));
+        let mut state = AppState::new(PathBuf::from("t.md"), doc);
+        state.viewport_height = 10;
+        state.run_search("line49");
+        let max = state.current_document.rendered.lines.len() - 10;
+        assert_eq!(state.scroll_offset as usize, max);
     }
 
     #[test]
