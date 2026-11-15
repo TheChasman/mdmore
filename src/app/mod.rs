@@ -69,14 +69,21 @@ impl App {
         let mut terminal_size = crossterm::terminal::size()?;
         self.state.viewport_height = terminal_size.1.saturating_sub(2);
 
+        // Draw only when something changed: first frame, any input or resize event,
+        // or an applied highlight. Idle writes nothing to the terminal.
+        let mut dirty = true;
         loop {
             terminal_size = crossterm::terminal::size()?;
             self.state.viewport_height = terminal_size.1.saturating_sub(2);
-            terminal.draw(|f| self.ui.render(f, &self.state))?;
+            if dirty {
+                terminal.draw(|f| self.ui.render(f, &self.state))?;
+                dirty = false;
+            }
 
             // Highlight just after the frame is on screen; never block on the job.
             while let Ok((generation, rendered)) = self.highlight_rx.try_recv() {
                 state::apply_highlight(&mut self.state, generation, rendered);
+                dirty = true;
             }
             let generation = self.state.generation;
             if self.highlight_spawned_for != Some(generation) {
@@ -91,7 +98,11 @@ impl App {
             }
 
             if event::poll(Duration::from_millis(16))? {
-                if let Event::Key(key) = event::read()? {
+                let event = event::read()?;
+                if matches!(event, Event::Key(_) | Event::Resize(..)) {
+                    dirty = true;
+                }
+                if let Event::Key(key) = event {
                     self.state.status_message = None;
                     // Search-mode handling comes before every other key arm.
                     if self.state.mode == state::AppMode::Search {
