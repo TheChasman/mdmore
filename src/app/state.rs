@@ -21,6 +21,7 @@ pub struct AppState {
     pub viewport_height: u16,
     pub cursor_line: Option<usize>,  // None = cursor dormant, Some(n) = active on line n
     pub toc_cursor: usize,           // selected heading index when TOC visible
+    pub generation: u64,             // increments on every document change
     pub stdin_document: Option<Document>, // set when the initial document came from stdin
 }
 
@@ -39,6 +40,7 @@ impl AppState {
             viewport_height: 20,
             cursor_line: None,
             toc_cursor: 0,
+            generation: 0,
             stdin_document: None,
         }
     }
@@ -93,6 +95,7 @@ impl AppState {
             let doc = self.load_location(&path).await?;
             self.current_location = path;
             self.current_document = doc;
+            self.generation += 1;
             self.cursor_line = None;
             self.scroll_offset = 0;
         }
@@ -106,6 +109,7 @@ impl AppState {
             let doc = self.load_location(&path).await?;
             self.current_location = path;
             self.current_document = doc;
+            self.generation += 1;
             self.cursor_line = None;
             self.scroll_offset = 0;
         }
@@ -118,6 +122,7 @@ impl AppState {
         self.nav_index = self.nav_stack.len() - 1;
         self.current_location = location;
         self.current_document = document;
+        self.generation += 1;
         self.cursor_line = None;
         self.scroll_offset = 0;
     }
@@ -218,6 +223,16 @@ impl AppState {
     }
 }
 
+/// Applies a background highlight result if it belongs to the current document.
+/// Replaces only the lines; links and headings are unchanged by highlighting.
+pub fn apply_highlight(state: &mut AppState, generation: u64, rendered: crate::document::RenderedDoc) -> bool {
+    if generation != state.generation {
+        return false;
+    }
+    state.current_document.rendered.lines = rendered.lines;
+    true
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -276,6 +291,19 @@ mod tests {
         if heading_count > 0 {
             assert_eq!(state.toc_cursor, heading_count - 1);
         }
+    }
+
+    #[test]
+    fn stale_highlight_is_ignored() {
+        let mut state = AppState::new(PathBuf::from("test.md"), create_test_document());
+        let before = state.current_document.rendered.lines.len();
+        let mut rd = state.current_document.rendered.clone();
+        rd.lines.clear();
+        state.generation = 2;
+        assert!(!apply_highlight(&mut state, 1, rd.clone()));
+        assert_eq!(state.current_document.rendered.lines.len(), before);
+        assert!(apply_highlight(&mut state, 2, rd));
+        assert_eq!(state.current_document.rendered.lines.len(), 0);
     }
 }
 

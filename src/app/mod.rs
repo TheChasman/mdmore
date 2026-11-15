@@ -16,6 +16,10 @@ pub struct App {
     state: state::AppState,
     ui: Ui,
     fetcher: Fetcher,
+    /// Generation whose highlight job has been spawned (None = nothing spawned yet).
+    highlight_spawned_for: Option<u64>,
+    highlight_tx: std::sync::mpsc::Sender<(u64, crate::document::RenderedDoc)>,
+    highlight_rx: std::sync::mpsc::Receiver<(u64, crate::document::RenderedDoc)>,
 }
 
 impl App {
@@ -32,7 +36,16 @@ impl App {
         let ui = Ui::new()?;
         let fetcher = Fetcher::new();
 
-        Ok(Self { state, ui, fetcher })
+        let (highlight_tx, highlight_rx) = std::sync::mpsc::channel();
+
+        Ok(Self {
+            state,
+            ui,
+            fetcher,
+            highlight_spawned_for: None,
+            highlight_tx,
+            highlight_rx,
+        })
     }
 
     pub async fn run(&mut self) -> Result<()> {
@@ -64,6 +77,22 @@ impl App {
             terminal_size = crossterm::terminal::size()?;
             self.state.viewport_height = terminal_size.1.saturating_sub(2);
             terminal.draw(|f| self.ui.render(f, &self.state))?;
+
+            // Highlight just after the frame is on screen; never block on the job.
+            while let Ok((generation, rendered)) = self.highlight_rx.try_recv() {
+                state::apply_highlight(&mut self.state, generation, rendered);
+            }
+            let generation = self.state.generation;
+            if self.highlight_spawned_for != Some(generation) {
+                self.highlight_spawned_for = Some(generation);
+                if self.state.current_document.needs_highlight() {
+                    let doc = self.state.current_document.clone();
+                    let tx = self.highlight_tx.clone();
+                    std::thread::spawn(move || {
+                        let _ = tx.send((generation, doc.highlighted()));
+                    });
+                }
+            }
 
             if event::poll(Duration::from_millis(100))? {
                 if let Event::Key(key) = event::read()? {

@@ -27,6 +27,12 @@ pub struct RenderedDoc {
 }
 
 pub fn render(blocks: &[crate::document::parser::Block]) -> RenderedDoc {
+    render_with(blocks, true)
+}
+
+/// With `highlight == false`, code bodies are unstyled (same line count), so
+/// no grammar is loaded; highlighting can be applied later via `render_with(.., true)`.
+pub fn render_with(blocks: &[crate::document::parser::Block], highlight: bool) -> RenderedDoc {
     let mut doc = RenderedDoc {
         lines: vec![],
         links: vec![],
@@ -34,13 +40,13 @@ pub fn render(blocks: &[crate::document::parser::Block]) -> RenderedDoc {
     };
 
     for block in blocks {
-        render_block(block, &mut doc, 0);
+        render_block(block, &mut doc, 0, highlight);
     }
 
     doc
 }
 
-fn render_block(block: &crate::document::parser::Block, doc: &mut RenderedDoc, indent_level: usize) {
+fn render_block(block: &crate::document::parser::Block, doc: &mut RenderedDoc, indent_level: usize, highlight: bool) {
     use crate::document::parser::Block;
 
     match block {
@@ -79,14 +85,18 @@ fn render_block(block: &crate::document::parser::Block, doc: &mut RenderedDoc, i
                 format!("```{}", token.as_deref().unwrap_or("")),
                 fence_style,
             )));
-            doc.lines.extend(highlight::highlight_code(code, lang.as_deref()));
+            if highlight {
+                doc.lines.extend(highlight::highlight_code(code, lang.as_deref()));
+            } else {
+                doc.lines.extend(highlight::plain(code));
+            }
             doc.lines.push(Line::from(Span::styled("```".to_string(), fence_style)));
             doc.lines.push(Line::from("")); // Empty line after code block
         }
         Block::BlockQuote { blocks: inner } => {
             let start_idx = doc.lines.len();
             for block in inner {
-                render_block(block, doc, indent_level + 1);
+                render_block(block, doc, indent_level + 1, highlight);
             }
             // Add blockquote prefix to all lines added
             for i in start_idx..doc.lines.len() {
@@ -105,7 +115,7 @@ fn render_block(block: &crate::document::parser::Block, doc: &mut RenderedDoc, i
                 };
                 let start_idx = doc.lines.len();
                 for block in item_blocks {
-                    render_block(block, doc, indent_level + 1);
+                    render_block(block, doc, indent_level + 1, highlight);
                 }
                 // Add marker to first line of item
                 if start_idx < doc.lines.len() {
@@ -283,5 +293,23 @@ mod tests {
         assert_eq!(doc.links.len(), 2);
         assert_eq!(doc.links[0].url, "./a.md");
         assert_eq!(doc.links[1].url, "./b.md");
+    }
+
+    #[test]
+    fn plain_and_highlighted_have_same_shape() {
+        let md = "# T\n\n```rust\nfn a() {}\n\n\tlet x = 1;\n```\n\n[l](./x.md)";
+        let blocks = crate::document::parser::parse(md);
+        let plain = render_with(&blocks, false);
+        let hl = render_with(&blocks, true);
+        assert_eq!(plain.lines.len(), hl.lines.len());
+        assert_eq!(plain.links.len(), hl.links.len());
+        assert_eq!(plain.headings.len(), hl.headings.len());
+        let text = |d: &RenderedDoc| {
+            d.lines
+                .iter()
+                .map(|l| l.spans.iter().map(|s| s.content.to_string()).collect::<String>())
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(text(&plain), text(&hl));
     }
 }

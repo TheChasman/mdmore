@@ -36,7 +36,7 @@ pub fn language_token(info: &str) -> Option<String> {
         .map(str::to_lowercase)
 }
 
-fn plain(code: &str) -> Vec<Line<'static>> {
+pub(crate) fn plain(code: &str) -> Vec<Line<'static>> {
     code.lines()
         .map(|l| Line::from(Span::styled(l.replace('\t', "    "), Style::default())))
         .collect()
