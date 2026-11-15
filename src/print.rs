@@ -10,6 +10,12 @@ pub fn render_lines(doc_source: &str, colour: bool, width: Option<u16>) -> Vec<L
     renderer::render_with(&parser::parse(doc_source), colour, width).lines
 }
 
+/// Whether the document renders in at most `max_lines` lines. Counts without
+/// highlighting (it never changes line count), so no grammars are loaded.
+pub fn fits_in(doc_source: &str, width: u16, max_lines: usize) -> bool {
+    render_lines(doc_source, false, Some(width)).len() <= max_lines
+}
+
 fn sgr(style: &Style) -> String {
     let mut codes: Vec<String> = Vec::new();
     match style.fg {

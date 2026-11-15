@@ -112,9 +112,8 @@ fn print_if_needed(content: &str, stdout_tty: bool, quit_if_one_screen: bool) ->
     }
     if quit_if_one_screen {
         let (cols, rows) = crossterm::terminal::size()?;
-        let lines = print::render_lines(content, true, Some(cols));
-        if lines.len() <= usize::from(rows.saturating_sub(2)) {
-            print::write_lines(&lines, &mut out, true)?;
+        if print::fits_in(content, cols, usize::from(rows.saturating_sub(2))) {
+            print::print_document(content, &mut out, true, Some(cols))?;
             return Ok(Some(()));
         }
     }
