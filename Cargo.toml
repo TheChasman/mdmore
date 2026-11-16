@@ -8,7 +8,7 @@ repository = "https://github.com/TheChasman/mdmore"
 readme = "README.md"
 keywords = ["markdown", "pager", "terminal", "syntax-highlighting", "cli"]
 categories = ["command-line-utilities"]
-exclude = ["artwork/", "docs/", "scripts/", ".factory/", "AGENTS.md", "CLAUDE.md", "RICH.md"]
+exclude = ["artwork/", "docs/", "scripts/", ".factory/", "AGENTS.md", "CLAUDE.md", "RICH.md", "STACK.md", ".stack"]
 
 [lib]
 name = "mdmore"
