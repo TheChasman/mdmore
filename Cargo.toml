@@ -3,6 +3,11 @@ name = "frogrust"
 version = "0.1.0"
 edition = "2021"
 license = "MIT"
+description = "more for Markdown: a fast terminal pager with syntax-highlighted code blocks"
+repository = "https://github.com/TheChasman/FrogRust"
+readme = "README.md"
+keywords = ["markdown", "pager", "terminal", "syntax-highlighting", "cli"]
+categories = ["command-line-utilities"]
 
 [lib]
 name = "frogrust"

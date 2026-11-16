@@ -23,6 +23,11 @@ Scope, priorities and decisions live in the PRD: [`docs/FrogRust_PRD.md`](docs/F
 | `-F` / `--quit-if-one-screen` (`frogrust -F short.md`) | ✅ |
 | Inline images (iTerm2, Kitty, Sixel; half-blocks elsewhere). Local files only; for documents piped on stdin, relative paths resolve against the current directory. Transparent PNG areas are blended onto the terminal background (black if the terminal does not report it) | ✅ |
 
+## Requirements
+
+- A Rust toolchain (stable) to build it.
+- A Unix terminal. Developed and tested on macOS (iTerm2, Terminal.app); it should build on Linux, but that isn't tested yet. Windows isn't supported.
+
 ## Install
 
 ```bash
@@ -57,6 +62,11 @@ Installs `~/Applications/FrogRust.app` with the icon in `artwork/icon/`. It appe
 ## Themes
 
 Code blocks use the `ansi` theme by default, which follows your terminal's own palette and so suits light and dark terminals. Pick another with `--theme <NAME>` or the `FROGRUST_THEME` environment variable (the flag wins). `frogrust --list-themes` prints the available names, one per line. Names are case-insensitive; an unknown name exits with code 2. Other themes use fixed RGB colours.
+
+## Acknowledgements
+
+- Syntax definitions and themes come from [bat](https://github.com/sharkdp/bat), packaged for syntect by [two-face](https://codeberg.org/CosmicHarper/two-face). The individual grammars carry their own licences; two-face lists them.
+- Inspired by [Frogmouth](https://github.com/Textualize/frogmouth), the Textual Markdown browser.
 
 ## License
 

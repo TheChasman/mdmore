@@ -1,4 +1,6 @@
 /target/
-Cargo.lock
 .DS_Store
 .worktrees/
+# Local agent scratch
+.superpowers/
+.agent-worker-log.md
