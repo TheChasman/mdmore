@@ -21,7 +21,7 @@ Scope, priorities and decisions live in the PRD: [`docs/FrogRust_PRD.md`](docs/F
 | Search (`/`, `n`, `N`) | ✅ |
 | Plain output when piped (`frogrust x.md \| head`) | ✅ |
 | `-F` / `--quit-if-one-screen` (`frogrust -F short.md`) | ✅ |
-| Inline images (iTerm2, Kitty, Sixel; half-blocks elsewhere). Local files only; for documents piped on stdin, relative paths resolve against the current directory | ✅ |
+| Inline images (iTerm2, Kitty, Sixel; half-blocks elsewhere). Local files only; for documents piped on stdin, relative paths resolve against the current directory. Transparent PNG areas are blended onto the terminal background (black if the terminal does not report it) | ✅ |
 
 ## Install
 

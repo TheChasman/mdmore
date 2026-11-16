@@ -38,10 +38,79 @@ fn detect_picker() -> Option<ratatui_image::picker::Picker> {
     if let Some(flags) = flags {
         let _ = rustix::fs::fcntl_setfl(stdin, flags);
     }
-    if let Some(t) = termios {
-        let _ = rustix::termios::tcsetattr(stdin, rustix::termios::OptionalActions::Now, &t);
+    if let Some(t) = &termios {
+        let _ = rustix::termios::tcsetattr(stdin, rustix::termios::OptionalActions::Now, t);
     }
-    picker
+    picker.map(|mut p| {
+        // Transparent PNG regions are blended onto the terminal's own background.
+        // No reply (or a non-tty) leaves it None, which composites onto black.
+        if let Some(bg) = termios.as_ref().and_then(query_background) {
+            p.background_color = Some(image::Rgb(bg));
+        }
+        // Reset again: the query changes termios.
+        if let Some(flags) = flags {
+            let _ = rustix::fs::fcntl_setfl(stdin, flags);
+        }
+        if let Some(t) = &termios {
+            let _ = rustix::termios::tcsetattr(stdin, rustix::termios::OptionalActions::Now, t);
+        }
+        p
+    })
+}
+
+/// Asks the terminal for its background colour (OSC 11) and waits up to ~100 ms.
+/// `saved` is the termios to build the query mode from; the caller restores it.
+fn query_background(saved: &rustix::termios::Termios) -> Option<[u8; 3]> {
+    use rustix::termios::{tcsetattr, LocalModes, OptionalActions, SpecialCodeIndex};
+    use std::io::Write;
+    let stdin = rustix::stdio::stdin();
+    let mut t = saved.clone();
+    t.local_modes &= !(LocalModes::ICANON | LocalModes::ECHO);
+    // Non-canonical read that returns after at most 0.1 s with no data.
+    t.special_codes[SpecialCodeIndex::VMIN] = 0;
+    t.special_codes[SpecialCodeIndex::VTIME] = 1;
+    tcsetattr(stdin, OptionalActions::Now, &t).ok()?;
+    let mut out = io::stdout();
+    out.write_all(b"\x1b]11;?\x07").ok()?;
+    out.flush().ok()?;
+    let mut buf = Vec::new();
+    let mut chunk = [0u8; 64];
+    // Each read waits up to 100 ms; stop at a terminator, a timeout or a size cap.
+    while buf.len() < 128 {
+        match rustix::io::read(stdin, &mut chunk) {
+            Ok(n) if n > 0 => {
+                buf.extend_from_slice(&chunk[..n]);
+                if buf.contains(&0x07) || buf.windows(2).any(|w| w == b"\x1b\\") {
+                    break;
+                }
+            }
+            _ => break,
+        }
+    }
+    parse_osc11_reply(&buf)
+}
+
+/// Parses `ESC ] 11 ; rgb:RRRR/GGGG/BBBB` (BEL or ST terminated; 1-4 hex digits per
+/// channel) into 8-bit RGB. Anything else is None.
+fn parse_osc11_reply(reply: &[u8]) -> Option<[u8; 3]> {
+    let text = std::str::from_utf8(reply).ok()?;
+    let rest = &text[text.find("rgb:")? + 4..];
+    let end = rest.find(|c: char| !(c.is_ascii_hexdigit() || c == '/')).unwrap_or(rest.len());
+    let mut channels = rest[..end].split('/');
+    let mut rgb = [0u8; 3];
+    for slot in &mut rgb {
+        let digits = channels.next()?;
+        if digits.is_empty() || digits.len() > 4 {
+            return None;
+        }
+        let value = u32::from_str_radix(digits, 16).ok()?;
+        let max = (1u32 << (4 * digits.len())) - 1;
+        *slot = ((value * 255 + max / 2) / max) as u8;
+    }
+    if channels.next().is_some() {
+        return None;
+    }
+    Some(rgb)
 }
 
 /// Restores the terminal on drop: raw mode off, main screen, cursor shown. Errors are ignored.
@@ -297,5 +366,17 @@ mod tests {
         assert!(!needs_picker(false, &plain));
         assert!(needs_picker(false, &with_img));
         assert!(!needs_picker(true, &with_img));
+    }
+
+    #[test]
+    fn osc11_reply_parsing() {
+        assert_eq!(parse_osc11_reply(b"\x1b]11;rgb:1234/5678/9abc\x07"), Some([18, 86, 154]));
+        assert_eq!(parse_osc11_reply(b"\x1b]11;rgb:ffff/0000/8080\x1b\\"), Some([255, 0, 128]));
+        assert_eq!(parse_osc11_reply(b"\x1b]11;rgb:ff/80/00\x07"), Some([255, 128, 0]));
+        assert_eq!(parse_osc11_reply(b"\x1b]11;rgb:f/0/8\x07"), Some([255, 0, 136]));
+        assert_eq!(parse_osc11_reply(b"garbage"), None);
+        assert_eq!(parse_osc11_reply(b""), None);
+        assert_eq!(parse_osc11_reply(b"\x1b]11;rgb:zz/00/00\x07"), None);
+        assert_eq!(parse_osc11_reply(b"\x1b]11;rgb:ff/00\x07"), None);
     }
 }

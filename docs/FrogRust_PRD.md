@@ -57,7 +57,7 @@ It started from one question: *"Is there a version of the pager `more` for Markd
 ### Tier 3 — Nice to have
 
 11. **Exit if it fits on one screen** *(built)*. `-F` / `--quit-if-one-screen`, like `less -F`.
-12. **Inline images** *(built)* in terminals that support iTerm2, Kitty or Sixel graphics, with a half-block fallback elsewhere; alt text for remote, missing or undecodable images. Local files only: relative paths resolve against the document's directory, or the current directory for documents read from stdin.
+12. **Inline images** *(built)* in terminals that support iTerm2, Kitty or Sixel graphics, with a half-block fallback elsewhere; alt text for remote, missing or undecodable images. Transparent PNG areas are blended onto the terminal background (queried via OSC 11; black if the terminal does not report it). Local files only: relative paths resolve against the document's directory, or the current directory for documents read from stdin.
 
 ### Dropped (browser-era features)
 

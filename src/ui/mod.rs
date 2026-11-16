@@ -134,6 +134,14 @@ impl Ui {
             .entry(path.to_path_buf())
             .or_insert_with(|| {
                 let img = image::ImageReader::open(path).ok()?.with_guessed_format().ok()?.decode().ok()?;
+                // ratatui-image's iTerm2 path encodes JPEG (no alpha) and only blends the
+                // padding, so flatten transparency onto the terminal background ourselves.
+                let bg = picker.background_color.map_or([0, 0, 0], |c| c.0);
+                let img = if img.color().has_alpha() {
+                    image::DynamicImage::ImageRgb8(composite_over(&img.to_rgba8(), bg))
+                } else {
+                    img
+                };
                 Some(picker.new_resize_protocol(img))
             })
             .as_mut()
@@ -281,5 +289,41 @@ mod tests {
         assert_eq!(visible_range(60, 38, 85), (61, 85));
         assert_eq!(visible_range(0, 38, 10), (1, 10));
         assert_eq!(visible_range(0, 38, 0), (0, 0));
+    }
+}
+
+/// Standard "over" blend of `rgba` onto a solid background colour.
+pub fn composite_over(rgba: &image::RgbaImage, bg: [u8; 3]) -> image::RgbImage {
+    image::RgbImage::from_fn(rgba.width(), rgba.height(), |x, y| {
+        let p = rgba.get_pixel(x, y).0;
+        let a = p[3] as u32;
+        let mix = |fg: u8, back: u8| ((fg as u32 * a + back as u32 * (255 - a) + 127) / 255) as u8;
+        image::Rgb([mix(p[0], bg[0]), mix(p[1], bg[1]), mix(p[2], bg[2])])
+    })
+}
+
+#[cfg(test)]
+mod composite_tests {
+    use super::*;
+
+    #[test]
+    fn transparent_becomes_background() {
+        let img = image::RgbaImage::from_pixel(2, 2, image::Rgba([200, 10, 10, 0]));
+        assert_eq!(composite_over(&img, [30, 40, 50]).get_pixel(1, 1).0, [30, 40, 50]);
+    }
+
+    #[test]
+    fn opaque_is_unchanged() {
+        let img = image::RgbaImage::from_pixel(2, 2, image::Rgba([200, 10, 90, 255]));
+        assert_eq!(composite_over(&img, [30, 40, 50]).get_pixel(0, 0).0, [200, 10, 90]);
+    }
+
+    #[test]
+    fn half_alpha_is_midpoint() {
+        let img = image::RgbaImage::from_pixel(1, 1, image::Rgba([200, 100, 0, 128]));
+        let p = composite_over(&img, [0, 100, 200]).get_pixel(0, 0).0;
+        for got in p {
+            assert!((got as i32 - 100).abs() <= 1, "{p:?}");
+        }
     }
 }
