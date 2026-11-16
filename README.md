@@ -75,3 +75,10 @@ Code blocks use the `ansi` theme by default, which follows your terminal's own p
 ## License
 
 MIT. See [`LICENSE`](./LICENSE).
+
+<!-- stack-stamps:start (managed by `stamp` via the pre-commit hook; edits are overwritten) -->
+## Stack
+
+Stamped elements: rust. Conventions for each are in [`STACK.md`](./STACK.md) —
+read it before changing how this project is built, stored, deployed or handles secrets.
+<!-- stack-stamps:end -->

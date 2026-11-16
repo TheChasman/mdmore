@@ -64,3 +64,11 @@ For multi-step tasks, state a brief plan:
 - Error handling: anyhow for binaries, thiserror for libraries
 - Async: none (std::thread + mpsc for background highlighting; no async runtime)
 - Prefer workspace Cargo.toml for multi-crate projects
+
+<!-- stack-stamps:start (managed by `stamp` via the pre-commit hook; edits are overwritten) -->
+## Stack
+
+Stamped elements: rust. Conventions for each are in [`STACK.md`](./STACK.md) —
+read it before changing how this project is built, stored, deployed or handles secrets.
+@STACK.md
+<!-- stack-stamps:end -->
