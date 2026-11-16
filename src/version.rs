@@ -15,8 +15,12 @@ struct VersionInfo<'a> {
 }
 
 fn render(version: &str, environment: &str, commit: &str) -> String {
-    serde_json::to_string(&VersionInfo { version, environment, commit })
-        .expect("string fields always serialise")
+    serde_json::to_string(&VersionInfo {
+        version,
+        environment,
+        commit,
+    })
+    .expect("string fields always serialise")
 }
 
 #[cfg(test)]

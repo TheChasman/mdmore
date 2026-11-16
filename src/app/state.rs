@@ -23,9 +23,9 @@ pub struct AppState {
     pub error_message: Option<String>,
     pub scroll_offset: u16,
     pub viewport_height: u16,
-    pub cursor_line: Option<usize>,  // None = cursor dormant, Some(n) = active on line n
-    pub toc_cursor: usize,           // selected heading index when TOC visible
-    pub generation: u64,             // increments on every document change
+    pub cursor_line: Option<usize>, // None = cursor dormant, Some(n) = active on line n
+    pub toc_cursor: usize,          // selected heading index when TOC visible
+    pub generation: u64,            // increments on every document change
     pub stdin_document: Option<Document>, // set when the initial document came from stdin
     /// A lone `g` was pressed; a second `g` jumps to the start, any other key clears it.
     pub pending_g: bool,
@@ -84,7 +84,10 @@ impl AppState {
     pub fn page_down(&mut self) {
         let line_count = self.current_document.rendered.lines.len() as u16;
         let max_offset = line_count.saturating_sub(self.viewport_height);
-        self.scroll_offset = self.scroll_offset.saturating_add(self.viewport_height).min(max_offset);
+        self.scroll_offset = self
+            .scroll_offset
+            .saturating_add(self.viewport_height)
+            .min(max_offset);
     }
 
     pub fn page_up(&mut self) {
@@ -168,7 +171,9 @@ impl AppState {
         self.generation += 1;
         self.clear_search();
         let n = self.current_document.rendered.lines.len();
-        let max_offset = n.saturating_sub(self.viewport_height as usize).min(u16::MAX as usize) as u16;
+        let max_offset = n
+            .saturating_sub(self.viewport_height as usize)
+            .min(u16::MAX as usize) as u16;
         self.scroll_offset = self.scroll_offset.min(max_offset);
         self.cursor_line = self.cursor_line.map(|c| c.min(n.saturating_sub(1)));
         true
@@ -350,7 +355,11 @@ fn fold(c: char) -> char {
 
 /// Applies a background highlight result if it belongs to the current document.
 /// Replaces only the lines; links and headings are unchanged by highlighting.
-pub fn apply_highlight(state: &mut AppState, generation: u64, rendered: crate::document::RenderedDoc) -> bool {
+pub fn apply_highlight(
+    state: &mut AppState,
+    generation: u64,
+    rendered: crate::document::RenderedDoc,
+) -> bool {
     if generation != state.generation {
         return false;
     }
@@ -361,7 +370,7 @@ pub fn apply_highlight(state: &mut AppState, generation: u64, rendered: crate::d
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::document::{Document, parser, renderer};
+    use crate::document::{parser, renderer, Document};
     use std::path::PathBuf;
 
     fn create_test_document() -> Document {
@@ -387,9 +396,13 @@ mod tests {
         s.run_search("alpha");
         assert_eq!(s.search_matches.len(), 3);
         assert_eq!(s.search_index, Some(0));
-        s.search_next(); assert_eq!(s.search_index, Some(1));
-        s.search_next(); s.search_next(); assert_eq!(s.search_index, Some(0)); // wraps
-        s.search_prev(); assert_eq!(s.search_index, Some(2));
+        s.search_next();
+        assert_eq!(s.search_index, Some(1));
+        s.search_next();
+        s.search_next();
+        assert_eq!(s.search_index, Some(0)); // wraps
+        s.search_prev();
+        assert_eq!(s.search_index, Some(2));
     }
 
     #[test]
@@ -504,7 +517,8 @@ mod stdin_tests {
 
     #[test]
     fn go_back_returns_to_stdin_document() {
-        let stdin_doc = Document::from_source("# From stdin".into(), PathBuf::from(STDIN_PATH), None);
+        let stdin_doc =
+            Document::from_source("# From stdin".into(), PathBuf::from(STDIN_PATH), None);
         let mut state = AppState::new(PathBuf::from(STDIN_PATH), stdin_doc.clone());
         state.stdin_document = Some(stdin_doc);
         let other = std::env::temp_dir().join("mdmore_go_back_test.md");
@@ -513,6 +527,9 @@ mod stdin_tests {
         state.open_document(other.clone(), doc);
         state.go_back().unwrap();
         assert_eq!(state.current_location, PathBuf::from("-"));
-        assert_eq!(state.current_document.rendered.headings[0].text, "From stdin");
+        assert_eq!(
+            state.current_document.rendered.headings[0].text,
+            "From stdin"
+        );
     }
 }

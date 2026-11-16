@@ -1,7 +1,7 @@
 use anyhow::{anyhow, Result};
 use clap::{Parser, Subcommand};
-use mdmore::{app, print, version};
 use mdmore::document::{Document, STDIN_PATH};
+use mdmore::{app, print, version};
 use std::io::{IsTerminal, Read};
 use std::path::PathBuf;
 
@@ -64,7 +64,10 @@ fn main() -> Result<()> {
         }
         return Ok(());
     }
-    let theme = args.theme.clone().or_else(|| std::env::var("MDMORE_THEME").ok().filter(|s| !s.is_empty()));
+    let theme = args
+        .theme
+        .clone()
+        .or_else(|| std::env::var("MDMORE_THEME").ok().filter(|s| !s.is_empty()));
     if let Some(name) = &theme {
         if let Err(e) = mdmore::document::highlight::set_theme(name) {
             eprintln!("mdmore: {e}");
@@ -87,7 +90,11 @@ fn main() -> Result<()> {
         if let Some(()) = print_if_needed(&content, stdout_tty, args.quit_if_one_screen)? {
             return Ok(());
         }
-        let doc = Document::from_source(content, PathBuf::from(STDIN_PATH), crossterm::terminal::size().ok().map(|(cols, _)| cols));
+        let doc = Document::from_source(
+            content,
+            PathBuf::from(STDIN_PATH),
+            crossterm::terminal::size().ok().map(|(cols, _)| cols),
+        );
         app::App::with_document(PathBuf::from(STDIN_PATH), doc)?
     } else {
         let initial_path = args.path.unwrap_or_else(|| PathBuf::from("README.md"));
@@ -109,7 +116,11 @@ fn main() -> Result<()> {
 
 /// Print instead of paging when piped, or with -F when the document fits.
 /// Returns Some(()) if it printed (caller should exit).
-fn print_if_needed(content: &str, stdout_tty: bool, quit_if_one_screen: bool) -> Result<Option<()>> {
+fn print_if_needed(
+    content: &str,
+    stdout_tty: bool,
+    quit_if_one_screen: bool,
+) -> Result<Option<()>> {
     let mut out = std::io::stdout().lock();
     if !stdout_tty {
         match print::print_document(content, &mut out, false, None) {

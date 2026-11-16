@@ -21,7 +21,11 @@ fn syntaxes() -> &'static SyntaxSet {
 }
 
 fn theme() -> &'static Theme {
-    THEME.get_or_init(|| two_face::theme::extra().get(EmbeddedThemeName::Ansi).clone())
+    THEME.get_or_init(|| {
+        two_face::theme::extra()
+            .get(EmbeddedThemeName::Ansi)
+            .clone()
+    })
 }
 
 /// Embedded theme names, sorted.
@@ -116,7 +120,11 @@ pub fn highlight_code(code: &str, info: Option<&str>) -> Vec<Line<'static>> {
                 (!text.is_empty()).then(|| Span::styled(text.to_string(), convert(st)))
             })
             .collect();
-        lines.push(if spans.is_empty() { Line::from("") } else { Line::from(spans) });
+        lines.push(if spans.is_empty() {
+            Line::from("")
+        } else {
+            Line::from(spans)
+        });
     }
     lines
 }
@@ -127,7 +135,11 @@ mod tests {
     use ratatui::style::{Color, Style};
 
     fn coloured_spans(lines: &[ratatui::text::Line]) -> usize {
-        lines.iter().flat_map(|l| &l.spans).filter(|s| s.style.fg.is_some()).count()
+        lines
+            .iter()
+            .flat_map(|l| &l.spans)
+            .filter(|s| s.style.fg.is_some())
+            .count()
     }
 
     #[test]
@@ -161,7 +173,10 @@ mod tests {
     #[test]
     fn resolves_language_tokens() {
         assert_eq!(language_token("rust,ignore").as_deref(), Some("rust"));
-        assert_eq!(language_token("python title=\"x\"").as_deref(), Some("python"));
+        assert_eq!(
+            language_token("python title=\"x\"").as_deref(),
+            Some("python")
+        );
         assert_eq!(language_token("JSON").as_deref(), Some("json"));
         assert_eq!(language_token("   ").as_deref(), None);
         for (alias, code) in [
@@ -172,7 +187,10 @@ mod tests {
             ("yml", "key: value"),
             ("rust,ignore", "fn f() {}"),
         ] {
-            assert!(coloured_spans(&highlight_code(code, Some(alias))) > 0, "{alias} not resolved");
+            assert!(
+                coloured_spans(&highlight_code(code, Some(alias))) > 0,
+                "{alias} not resolved"
+            );
         }
     }
 
@@ -181,7 +199,10 @@ mod tests {
         for info in [Some("nosuchlanguage"), None] {
             let lines = highlight_code("plain text here\nsecond", info);
             assert_eq!(lines.len(), 2);
-            assert!(lines.iter().flat_map(|l| &l.spans).all(|s| s.style == Style::default()));
+            assert!(lines
+                .iter()
+                .flat_map(|l| &l.spans)
+                .all(|s| s.style == Style::default()));
         }
     }
 
@@ -190,9 +211,14 @@ mod tests {
         let code = "fn a() {}\n\n  let y = 2;   \n";
         let lines = highlight_code(code, Some("rust"));
         assert_eq!(lines.len(), code.lines().count());
-        assert!(lines.iter().flat_map(|l| &l.spans).all(|s| !s.content.contains('\n')));
-        let text: Vec<String> = lines.iter()
-            .map(|l| l.spans.iter().map(|s| s.content.as_ref()).collect()).collect();
+        assert!(lines
+            .iter()
+            .flat_map(|l| &l.spans)
+            .all(|s| !s.content.contains('\n')));
+        let text: Vec<String> = lines
+            .iter()
+            .map(|l| l.spans.iter().map(|s| s.content.as_ref()).collect())
+            .collect();
         assert_eq!(text, vec!["fn a() {}", "", "  let y = 2;   "]);
     }
 
@@ -208,7 +234,10 @@ mod tests {
     fn ansi_theme_uses_palette_colours() {
         let lines = highlight_code("fn main() { let s = \"x\"; }", Some("rust"));
         for span in lines.iter().flat_map(|l| &l.spans) {
-            assert!(!matches!(span.style.fg, Some(Color::Rgb(..))), "RGB fg leaked: {span:?}");
+            assert!(
+                !matches!(span.style.fg, Some(Color::Rgb(..))),
+                "RGB fg leaked: {span:?}"
+            );
             assert!(span.style.bg.is_none(), "background set: {span:?}");
         }
     }

@@ -1,15 +1,34 @@
 // src/document/parser.rs
 
 pub enum Block {
-    Heading { level: u8, inlines: Vec<Inline> },
-    Paragraph { inlines: Vec<Inline> },
-    CodeBlock { lang: Option<String>, code: String },
-    BlockQuote { blocks: Vec<Block> },
-    List { ordered: bool, items: Vec<Vec<Block>> },
+    Heading {
+        level: u8,
+        inlines: Vec<Inline>,
+    },
+    Paragraph {
+        inlines: Vec<Inline>,
+    },
+    CodeBlock {
+        lang: Option<String>,
+        code: String,
+    },
+    BlockQuote {
+        blocks: Vec<Block>,
+    },
+    List {
+        ordered: bool,
+        items: Vec<Vec<Block>>,
+    },
     Rule,
-    Table { headers: Vec<Vec<Inline>>, rows: Vec<Vec<Vec<Inline>>> },
+    Table {
+        headers: Vec<Vec<Inline>>,
+        rows: Vec<Vec<Vec<Inline>>>,
+    },
     /// A paragraph whose only content is one image.
-    Image { url: String, alt: String },
+    Image {
+        url: String,
+        alt: String,
+    },
 }
 
 pub enum Inline {
@@ -246,7 +265,13 @@ fn is_inline_start(event: &Event) -> bool {
             | Event::SoftBreak
             | Event::HardBreak
             | Event::InlineHtml(_)
-            | Event::Start(Tag::Strong | Tag::Emphasis | Tag::Strikethrough | Tag::Link { .. } | Tag::Image { .. })
+            | Event::Start(
+                Tag::Strong
+                    | Tag::Emphasis
+                    | Tag::Strikethrough
+                    | Tag::Link { .. }
+                    | Tag::Image { .. }
+            )
     )
 }
 
@@ -319,7 +344,9 @@ mod tests {
     #[test]
     fn parses_standalone_image() {
         let blocks = parse("![a frog](frog.png)");
-        assert!(matches!(&blocks[0], Block::Image { url, alt } if url == "frog.png" && alt == "a frog"));
+        assert!(
+            matches!(&blocks[0], Block::Image { url, alt } if url == "frog.png" && alt == "a frog")
+        );
     }
 
     #[test]
@@ -469,7 +496,13 @@ mod tests {
     #[test]
     fn tight_unordered_list_keeps_text() {
         let blocks = parse("- a\n- b\n");
-        let Block::List { ordered: false, items } = &blocks[0] else { panic!() };
+        let Block::List {
+            ordered: false,
+            items,
+        } = &blocks[0]
+        else {
+            panic!()
+        };
         assert_eq!(item_text(&items[0]), "a");
         assert_eq!(item_text(&items[1]), "b");
     }
@@ -477,7 +510,13 @@ mod tests {
     #[test]
     fn tight_ordered_list_keeps_text() {
         let blocks = parse("1. one\n2. two\n");
-        let Block::List { ordered: true, items } = &blocks[0] else { panic!() };
+        let Block::List {
+            ordered: true,
+            items,
+        } = &blocks[0]
+        else {
+            panic!()
+        };
         assert_eq!(item_text(&items[0]), "one");
         assert_eq!(item_text(&items[1]), "two");
     }
@@ -485,17 +524,23 @@ mod tests {
     #[test]
     fn tight_item_keeps_code_and_link() {
         let blocks = parse("- use `x` and [l](./l.md)\n");
-        let Block::List { items, .. } = &blocks[0] else { panic!() };
+        let Block::List { items, .. } = &blocks[0] else {
+            panic!()
+        };
         assert_eq!(item_text(&items[0]), "use x and <link>");
     }
 
     #[test]
     fn nested_tight_list() {
         let blocks = parse("- a\n  - b\n- c\n");
-        let Block::List { items, .. } = &blocks[0] else { panic!() };
+        let Block::List { items, .. } = &blocks[0] else {
+            panic!()
+        };
         assert_eq!(items.len(), 2);
         assert_eq!(item_text(&items[0]), "a");
-        let Some(Block::List { items: inner, .. }) = items[0].get(1) else { panic!("no nested list") };
+        let Some(Block::List { items: inner, .. }) = items[0].get(1) else {
+            panic!("no nested list")
+        };
         assert_eq!(item_text(&inner[0]), "b");
         assert_eq!(item_text(&items[1]), "c");
     }

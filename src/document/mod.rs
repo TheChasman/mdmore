@@ -2,8 +2,8 @@ pub mod highlight;
 pub mod parser;
 pub mod renderer;
 
-pub use renderer::RenderedDoc;
 use anyhow::Result;
+pub use renderer::RenderedDoc;
 use std::path::{Path, PathBuf};
 
 /// Path recorded for a document read from stdin.
@@ -42,7 +42,8 @@ impl Document {
             return false;
         }
         let blocks = parser::parse(&self.content);
-        self.rendered = renderer::render_with_base(&blocks, false, width, Some(&base_dir(&self.path)));
+        self.rendered =
+            renderer::render_with_base(&blocks, false, width, Some(&base_dir(&self.path)));
         self.width = width;
         true
     }
@@ -51,9 +52,10 @@ impl Document {
     pub fn needs_highlight(&self) -> bool {
         fn any_lang(blocks: &[parser::Block]) -> bool {
             blocks.iter().any(|b| match b {
-                parser::Block::CodeBlock { lang, .. } => {
-                    lang.as_deref().and_then(highlight::language_token).is_some()
-                }
+                parser::Block::CodeBlock { lang, .. } => lang
+                    .as_deref()
+                    .and_then(highlight::language_token)
+                    .is_some(),
                 parser::Block::BlockQuote { blocks } => any_lang(blocks),
                 parser::Block::List { items, .. } => items.iter().any(|i| any_lang(i)),
                 _ => false,
@@ -64,7 +66,12 @@ impl Document {
 
     /// Fully highlighted render of this document's content (slow on first grammar use).
     pub fn highlighted(&self) -> RenderedDoc {
-        renderer::render_with_base(&parser::parse(&self.content), true, self.width, Some(&base_dir(&self.path)))
+        renderer::render_with_base(
+            &parser::parse(&self.content),
+            true,
+            self.width,
+            Some(&base_dir(&self.path)),
+        )
     }
 }
 
