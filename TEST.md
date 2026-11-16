@@ -10,7 +10,7 @@ FrogRust is `more` for Markdown, with syntax highlighting: a fast pager for read
 
 - Headings, **bold**, *italic* and `inline code` render
 - Lists, tables, quotes and rules render
-- Fenced code blocks below are coloured by language (not built yet; they show as plain code until syntax highlighting lands)
+- Fenced code blocks below are coloured by language
 - An unknown language falls back to plain code styling
 
 ## Code blocks
