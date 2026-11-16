@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# Build FrogRust natively and install it as ~/Applications/FrogRust.app.
+# Build mdmore natively and install it as ~/Applications/mdmore.app.
 #
-# FrogRust is a terminal app. The bundle is an AppleScript applet so it can
+# mdmore is a terminal app. The bundle is an AppleScript applet so it can
 # receive Finder "Open With" / drag-and-drop file events (a shell-script
 # executable can't). Each file opens in a new Terminal window. Launched on its
 # own, it asks for a Markdown file. The raw binary is also at
-#   ~/Applications/FrogRust.app/Contents/MacOS/frogrust
+#   ~/Applications/mdmore.app/Contents/MacOS/mdmore
 # for use from a shell.
 #
 # Usage: scripts/deploy-mac.sh            (installs to ~/Applications)
@@ -14,9 +14,9 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DEST="${DEST:-${HOME}/Applications}"
-APP_NAME="FrogRust"
-BUNDLE_ID="com.thechasman.frogrust"
-ICON_SRC="${ROOT}/artwork/icon/RustFrog.png"
+APP_NAME="mdmore"
+BUNDLE_ID="com.thechasman.mdmore"
+ICON_SRC="${ROOT}/artwork/icon/mdmore.png"
 BUILD="${ROOT}/target/macos"
 APP="${BUILD}/${APP_NAME}.app"
 
@@ -45,28 +45,28 @@ mkdir -p "${BUILD}"
 osacompile -o "${APP}" - <<'APPLESCRIPT' || die "osacompile failed"
 on run
 	try
-		set f to choose file with prompt "Open a Markdown file in FrogRust" of type {"net.daringfireball.markdown", "public.plain-text"}
+		set f to choose file with prompt "Open a Markdown file in mdmore" of type {"net.daringfireball.markdown", "public.plain-text"}
 	on error number -128
 		return
 	end try
-	openInFrogRust(f)
+	openInMdmore(f)
 end run
 
 on open theFiles
 	repeat with f in theFiles
-		openInFrogRust(f)
+		openInMdmore(f)
 	end repeat
 end open
 
-on openInFrogRust(f)
+on openInMdmore(f)
 	set helper to (POSIX path of (path to me)) & "Contents/Resources/open-in-terminal"
 	do shell script quoted form of helper & " " & quoted form of (POSIX path of f)
-end openInFrogRust
+end openInMdmore
 APPLESCRIPT
 
-cp "${ROOT}/target/release/frogrust" "${APP}/Contents/MacOS/frogrust"
+cp "${ROOT}/target/release/mdmore" "${APP}/Contents/MacOS/mdmore"
 
-# Helper: run frogrust on the file in a new Terminal window.
+# Helper: run mdmore on the file in a new Terminal window.
 # It opens a throwaway .terminal settings file whose command *replaces* the
 # shell (RunCommandAsShell), so the user's zsh startup (prompts, secret managers)
 # never runs. Opening a .terminal file doesn't import a profile, and needs no
@@ -77,9 +77,9 @@ cat > "${APP}/Contents/Resources/open-in-terminal" <<'HELPER'
 #!/bin/bash
 set -e
 file="$1"
-bin="$(cd "$(dirname "$0")/../MacOS" && pwd)/frogrust"
+bin="$(cd "$(dirname "$0")/../MacOS" && pwd)/mdmore"
 tmpdir="${TMPDIR:-/tmp}"
-run="$(mktemp "${tmpdir%/}/frogrust.XXXXXX")"
+run="$(mktemp "${tmpdir%/}/mdmore.XXXXXX")"
 printf '#!/bin/bash\nrm -f "$0"\ncd %q && exec %q %q\n' "$(dirname "${file}")" "${bin}" "${file}" > "${run}"
 chmod +x "${run}"
 
@@ -91,7 +91,7 @@ if [[ -z "${default}" || "${default}" == *.* ]] \
         | plutil -extract "Window Settings.${default}" xml1 -o "${term}" - 2>/dev/null; then
     printf '<?xml version="1.0" encoding="UTF-8"?>\n<plist version="1.0"><dict/></plist>\n' > "${term}"
 fi
-plutil -replace name -string FrogRust "${term}"
+plutil -replace name -string mdmore "${term}"
 plutil -replace type -string "Window Settings" "${term}"
 plutil -replace CommandString -string "${run}" "${term}"
 plutil -replace RunCommandAsShell -bool YES "${term}"
@@ -114,7 +114,7 @@ iconutil -c icns "${iconset}" -o "${APP}/Contents/Resources/${APP_NAME}.icns"
 rm -rf "${iconset}" "${APP}"/Contents/Resources/{applet,droplet}.icns "${APP}/Contents/Resources/Assets.car"
 
 # Info.plist: identity, icon, version, and Markdown as a viewable document type
-# (this is what puts FrogRust in Finder's "Open With" list).
+# (this is what puts mdmore in Finder's "Open With" list).
 plist="${APP}/Contents/Info.plist"
 plutil -remove CFBundleIconName "${plist}" >/dev/null 2>&1 || true
 for kv in "CFBundleName=${APP_NAME}" "CFBundleDisplayName=${APP_NAME}" \
@@ -150,4 +150,4 @@ touch "${DEST}/${APP_NAME}.app"
 /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -f "${DEST}/${APP_NAME}.app" 2>/dev/null || true
 
 printf '✓ %s\n' "${DEST}/${APP_NAME}.app"
-"${DEST}/${APP_NAME}.app/Contents/MacOS/frogrust" --version
+"${DEST}/${APP_NAME}.app/Contents/MacOS/mdmore" --version

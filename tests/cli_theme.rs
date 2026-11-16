@@ -1,9 +1,9 @@
 use std::process::Command;
 
 fn run(args: &[&str]) -> std::process::Output {
-    Command::new(env!("CARGO_BIN_EXE_frogrust"))
+    Command::new(env!("CARGO_BIN_EXE_mdmore"))
         .current_dir(env!("CARGO_MANIFEST_DIR"))
-        .env_remove("FROGRUST_THEME")
+        .env_remove("MDMORE_THEME")
         .args(args)
         .output()
         .unwrap()

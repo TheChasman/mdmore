@@ -1,20 +1,20 @@
 [package]
-name = "frogrust"
+name = "mdmore"
 version = "0.1.0"
 edition = "2021"
 license = "MIT"
 description = "more for Markdown: a fast terminal pager with syntax-highlighted code blocks"
-repository = "https://github.com/TheChasman/FrogRust"
+repository = "https://github.com/TheChasman/mdmore"
 readme = "README.md"
 keywords = ["markdown", "pager", "terminal", "syntax-highlighting", "cli"]
 categories = ["command-line-utilities"]
 
 [lib]
-name = "frogrust"
+name = "mdmore"
 path = "src/lib.rs"
 
 [[bin]]
-name = "frogrust"
+name = "mdmore"
 path = "src/main.rs"
 
 [dependencies]

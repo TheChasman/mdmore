@@ -9,11 +9,11 @@ fn git(args: &[&str]) -> Option<String> {
     (!s.is_empty()).then_some(s)
 }
 
-// Stamp the short git commit into the binary as FROGRUST_COMMIT.
+// Stamp the short git commit into the binary as MDMORE_COMMIT.
 // Left unset (reported as "unknown") when git or the repo isn't available.
 fn main() {
     if let Some(commit) = git(&["rev-parse", "--short", "HEAD"]) {
-        println!("cargo:rustc-env=FROGRUST_COMMIT={commit}");
+        println!("cargo:rustc-env=MDMORE_COMMIT={commit}");
     }
 
     // Rebuild when the commit moves. HEAD only changes on checkout; a new commit

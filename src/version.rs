@@ -1,9 +1,9 @@
 /// Runtime identification: release version, deployment environment, source commit.
-/// Environment comes from `FROGRUST_ENV` at runtime; commit is stamped by build.rs.
+/// Environment comes from `MDMORE_ENV` at runtime; commit is stamped by build.rs.
 /// Either falls back to "unknown" rather than guessing.
 pub fn version_json() -> String {
-    let environment = std::env::var("FROGRUST_ENV").unwrap_or_else(|_| "unknown".into());
-    let commit = option_env!("FROGRUST_COMMIT").unwrap_or("unknown");
+    let environment = std::env::var("MDMORE_ENV").unwrap_or_else(|_| "unknown".into());
+    let commit = option_env!("MDMORE_COMMIT").unwrap_or("unknown");
     render(env!("CARGO_PKG_VERSION"), &environment, commit)
 }
 

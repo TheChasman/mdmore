@@ -1,13 +1,13 @@
 use anyhow::{anyhow, Result};
 use clap::{Parser, Subcommand};
-use frogrust::{app, print, version};
-use frogrust::document::{Document, STDIN_PATH};
+use mdmore::{app, print, version};
+use mdmore::document::{Document, STDIN_PATH};
 use std::io::{IsTerminal, Read};
 use std::path::PathBuf;
 
 #[derive(Parser)]
-#[command(name = "frogrust")]
-#[command(about = "A terminal Markdown browser")]
+#[command(name = "mdmore")]
+#[command(about = "more for Markdown: a fast terminal pager with syntax-highlighted code blocks")]
 #[command(disable_version_flag = true, args_conflicts_with_subcommands = true)]
 struct Args {
     /// Path to Markdown file to open
@@ -21,7 +21,7 @@ struct Args {
     #[arg(short = 'F', long = "quit-if-one-screen")]
     quit_if_one_screen: bool,
 
-    /// Highlighting theme (default: ansi; env FROGRUST_THEME); see --list-themes
+    /// Highlighting theme (default: ansi; env MDMORE_THEME); see --list-themes
     #[arg(long)]
     theme: Option<String>,
 
@@ -59,15 +59,15 @@ fn main() -> Result<()> {
     }
 
     if args.list_themes {
-        for name in frogrust::document::highlight::theme_names() {
+        for name in mdmore::document::highlight::theme_names() {
             println!("{name}");
         }
         return Ok(());
     }
-    let theme = args.theme.clone().or_else(|| std::env::var("FROGRUST_THEME").ok().filter(|s| !s.is_empty()));
+    let theme = args.theme.clone().or_else(|| std::env::var("MDMORE_THEME").ok().filter(|s| !s.is_empty()));
     if let Some(name) = &theme {
-        if let Err(e) = frogrust::document::highlight::set_theme(name) {
-            eprintln!("frogrust: {e}");
+        if let Err(e) = mdmore::document::highlight::set_theme(name) {
+            eprintln!("mdmore: {e}");
             std::process::exit(2);
         }
     }

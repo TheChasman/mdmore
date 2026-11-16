@@ -1,4 +1,4 @@
-use frogrust::document::{highlight, parser, renderer};
+use mdmore::document::{highlight, parser, renderer};
 
 #[test]
 fn no_code_blocks_does_not_load_grammars() {

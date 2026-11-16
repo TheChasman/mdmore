@@ -1,14 +1,14 @@
-# FrogRust — Product Requirements Document
+# mdmore — Product Requirements Document
 
 ## Overview
 
-**FrogRust is `more` for Markdown, with syntax highlighting.** From a shell you type `frogrust README.md`, read the document rendered (headings, emphasis, lists, tables, links) with **language-aware syntax highlighting in its code blocks**, press `q`, and you're back at your prompt.
+**mdmore is `more` for Markdown, with syntax highlighting.** From a shell you type `mdmore README.md`, read the document rendered (headings, emphasis, lists, tables, links) with **language-aware syntax highlighting in its code blocks**, press `q`, and you're back at your prompt.
 
 It started from one question: *"Is there a version of the pager `more` for Markdown?"* It's a single Rust binary that starts instantly and has no runtime to rot.
 
 **Philosophy:** Compilation, small, fast. A pager first; anything that doesn't serve reading a file from the terminal is out of scope.
 
-**USP:** the syntax highlighting. `less` and `more` show raw Markdown, and most terminal renderers show code blocks in a single colour. FrogRust aims for highlighting as good as [`bat`](https://github.com/sharkdp/bat), which also uses syntect, inside properly rendered Markdown.
+**USP:** the syntax highlighting. `less` and `more` show raw Markdown, and most terminal renderers show code blocks in a single colour. mdmore aims for highlighting as good as [`bat`](https://github.com/sharkdp/bat), which also uses syntect, inside properly rendered Markdown.
 
 ### Where it's used
 
@@ -22,9 +22,9 @@ It started from one question: *"Is there a version of the pager `more` for Markd
 | `less` / `more` | Muscle memory: keys, `q` to quit, `/` search, reading stdin | Raw text only |
 | [`bat`](https://github.com/sharkdp/bat) | The bar for highlighting quality (syntect grammars and themes) | It highlights source; it doesn't render Markdown |
 | [`glow`](https://github.com/charmbracelet/glow) | A fast single-binary terminal Markdown renderer with a pager | Its file-picker/stash features |
-| [Frogmouth](https://github.com/Textualize/frogmouth) | The original inspiration: in-document TOC and following local links | Its browser shape: address bar/omnibox, remote URLs, GitHub shorthand, bookmarks, history panes, file browser. Frogmouth has been dormant since 2024 (last release v0.9.1, Nov 2023) |
+| [Frogmouth](https://github.com/Textualize/frogmouth) | The basis for this crate: rendered Markdown, an in-document TOC, and following local links with back/forward | Its browser shape: address bar/omnibox, remote URLs, GitHub shorthand, bookmarks, history panes, file browser. Frogmouth has been dormant since 2024 (last release v0.9.1, Nov 2023) |
 
-> **History:** FrogRust was first specified (May 2026) as a Rust port of Frogmouth's *browser*. That's why the original Tier 2/3 lists below were dropped. In November 2026 we tried, and reversed, a pivot to a Finder GUI app. The owner confirmed the original intent: a pager with syntax highlighting. The May spec and plan in `docs/superpowers/` record the browser-era MVP that is already built.
+> **History:** mdmore is based on Textualize's [Frogmouth](https://github.com/Textualize/frogmouth) (MIT). It was first specified (May 2026), under the name FrogRust, as a Rust port of Frogmouth's *browser*, and renamed mdmore on 2026-11-16 to follow the `mdcat`/`mdless` naming convention. That's why the original Tier 2/3 lists below were dropped. In November 2026 we tried, and reversed, a pivot to a Finder GUI app. The owner confirmed the original intent: a pager with syntax highlighting. The May spec and plan in `docs/superpowers/` record the browser-era MVP that is already built.
 
 ---
 
@@ -41,9 +41,9 @@ It started from one question: *"Is there a version of the pager `more` for Markd
 ### Tier 1 — The pager (next)
 
 1. **Syntax-highlighted code blocks** *(the USP; built)*. Use syntect with the fence's info string (` ```rust `) to choose the grammar. Unknown or missing languages fall back to plain code styling. The colours must stay readable on both light and dark terminals.
-2. **Open and render a local `.md` file** *(built)*. `frogrust FILE` renders headings, emphasis, inline code, lists, tables, quotes, rules and links.
+2. **Open and render a local `.md` file** *(built)*. `mdmore FILE` renders headings, emphasis, inline code, lists, tables, quotes, rules and links.
 3. **Pager movement with `less` muscle memory** *(built)*. `j`/`k` and arrow keys scroll by a line, `space`/`PageDown` go down a page, `b` and `PageUp` go up a page, and `g`/`gg` and `G` jump to the start and end.
-4. **Read from stdin** *(built)*. `cat notes.md | frogrust` and `frogrust -` both work, as with `less`. The keys still work when stdin is a pipe (read them from the terminal device).
+4. **Read from stdin** *(built)*. `cat notes.md | mdmore` and `mdmore -` both work, as with `less`. The keys still work when stdin is a pipe (read them from the terminal device).
 5. **Quit cleanly** *(built)*. `q` exits and restores the terminal: no leftover text, cursor visible.
 
 ### Tier 2 — Comfortable reading
@@ -51,8 +51,8 @@ It started from one question: *"Is there a version of the pager `more` for Markd
 6. **Search** *(built)*. `/pattern`, then `n`/`N` for the next/previous match, highlighting matches as `less` does.
 7. **Table of contents** *(built)*. `t` toggles a heading sidebar, and `Enter` jumps to the selected heading.
 8. **Follow local links and go back/forward** *(built)*. Kept because it's cheap and already works, but it stays local-only.
-9. **Highlighting themes** *(built)*. A sensible default for light and dark terminals, with `--theme` / `FROGRUST_THEME` to choose a syntect theme and `--list-themes` to list them.
-10. **Plain output when not a terminal** *(built)*. If stdout isn't a TTY (for example `frogrust x.md | head`), print the rendered text and exit instead of starting the interactive pager, as `bat` does.
+9. **Highlighting themes** *(built)*. A sensible default for light and dark terminals, with `--theme` / `MDMORE_THEME` to choose a syntect theme and `--list-themes` to list them.
+10. **Plain output when not a terminal** *(built)*. If stdout isn't a TTY (for example `mdmore x.md | head`), print the rendered text and exit instead of starting the interactive pager, as `bat` does.
 
 ### Tier 3 — Nice to have
 
@@ -81,7 +81,7 @@ None.
 ```
 src/
   main.rs            — clap CLI: FILE, -V/--version, `version` subcommand
-  lib.rs             — module root (the binary imports frogrust::{app, version})
+  lib.rs             — module root (the binary imports mdmore::{app, version})
   version.rs         — {"version","environment","commit"} JSON (commit stamped by build.rs)
   app/
     mod.rs           — App: terminal setup/teardown, key-handling event loop
@@ -101,11 +101,11 @@ src/
 
 ## Success Criteria
 
-FrogRust is a pager worth using when:
+mdmore is a pager worth using when:
 
-1. `frogrust README.md` opens within 100 ms on an Apple Silicon Mac and shows the rendered document.
+1. `mdmore README.md` opens within 100 ms on an Apple Silicon Mac and shows the rendered document.
 2. Fenced code blocks in common languages (Rust, Python, shell, TypeScript, JSON, YAML, TOML) are highlighted correctly, and unknown languages degrade to plain code styling.
-3. `cat file.md | frogrust` works.
+3. `cat file.md | mdmore` works.
 4. The `less` keys work: `j k space PageUp PageDown g G q`, plus `/ n N` from Tier 2.
 5. `q` leaves the terminal exactly as it was.
 6. Errors (missing file, unreadable input) give a clear message and a non-zero exit, with no panic.
@@ -134,7 +134,7 @@ rustix = "0.38"           # stdio/fs/termios: restore stdin after the graphics q
 
 ## Deliverables
 
-- `cargo install --path .` puts `frogrust` on your PATH (`~/.cargo/bin`, on PATH on both Macs).
+- `cargo install --path .` puts `mdmore` on your PATH (`~/.cargo/bin`, on PATH on both Macs).
 - `scripts/deploy-mac.sh` optionally installs the macOS app bundle for Finder's Open With.
 - Readable, modular code with the navigation logic unit-tested.
 

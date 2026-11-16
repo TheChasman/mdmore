@@ -1,10 +1,10 @@
-# FrogRust Test Document
+# mdmore Test Document
 
-A sample file for checking FrogRust by eye: `frogrust TEST.md`.
+A sample file for checking mdmore by eye: `mdmore TEST.md`.
 
 ## Introduction
 
-FrogRust is `more` for Markdown, with syntax highlighting: a fast pager for reading Markdown in the terminal.
+mdmore is `more` for Markdown, with syntax highlighting: a fast pager for reading Markdown in the terminal.
 
 ### What to check
 
@@ -17,7 +17,7 @@ FrogRust is `more` for Markdown, with syntax highlighting: a fast pager for read
 
 ```rust
 fn main() {
-    let name = "FrogRust";
+    let name = "mdmore";
     println!("Hello from {name}!");
 }
 ```
@@ -29,7 +29,7 @@ def greet(name: str) -> str:
 
 ```bash
 cargo install --path .
-frogrust TEST.md
+mdmore TEST.md
 ```
 
 ```typescript
@@ -42,12 +42,12 @@ const greet = (name: string): string => `Hello from ${name}!`;
 
 ```toml
 [package]
-name = "frogrust"
+name = "mdmore"
 version = "0.1.0"
 ```
 
 ```nosuchlanguage
-This block names a language FrogRust doesn't know, so it should fall back to plain code.
+This block names a language mdmore doesn't know, so it should fall back to plain code.
 ```
 
 ```
@@ -71,7 +71,7 @@ A wide table with inline formatting:
 | Feature | Description | Link |
 |---|---|---|
 | **Bold** | A deliberately long description cell so the table is wider than a narrow terminal window | [Example](./README.md) |
-| `code` | Inline *italic* and `code` inside cells | [PRD](./docs/FrogRust_PRD.md) |
+| `code` | Inline *italic* and `code` inside cells | [PRD](./docs/mdmore_PRD.md) |
 
 ## Navigation
 
@@ -86,7 +86,7 @@ A wide table with inline formatting:
 
 ## Wrapping and tight lists
 
-A deliberately long paragraph to check wrapping: it should fold at word boundaries to the width of your terminal, never run off the right-hand edge, and re-wrap when you resize the window. Links such as [the PRD](docs/FrogRust_PRD.md) stay followable even when they land near the end of a line.
+A deliberately long paragraph to check wrapping: it should fold at word boundaries to the width of your terminal, never run off the right-hand edge, and re-wrap when you resize the window. Links such as [the PRD](docs/mdmore_PRD.md) stay followable even when they land near the end of a line.
 
 - A tight list item with `inline code`
 - A tight item long enough to wrap, whose continuation lines should hang neatly under the text rather than under the bullet marker
@@ -129,7 +129,7 @@ Line 25
 
 ## Image
 
-![RustFrog icon](artwork/icon/RustFrog.png)
+![mdmore icon](artwork/icon/mdmore.png)
 
 ## End
 

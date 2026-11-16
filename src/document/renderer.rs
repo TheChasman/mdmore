@@ -512,9 +512,9 @@ mod tests {
     #[test]
     fn local_image_reserves_rows() {
         let dir = std::env::temp_dir();
-        let p = dir.join("frogrust_test_img.png");
+        let p = dir.join("mdmore_test_img.png");
         image::RgbaImage::new(4, 4).save(&p).unwrap();
-        let doc = render_with_base(&parser::parse("![x](frogrust_test_img.png)"), false, None, Some(&dir));
+        let doc = render_with_base(&parser::parse("![x](mdmore_test_img.png)"), false, None, Some(&dir));
         assert_eq!(doc.images.len(), 1);
         assert_eq!(doc.images[0].height, 12);
         assert_eq!(doc.lines.len(), 12);

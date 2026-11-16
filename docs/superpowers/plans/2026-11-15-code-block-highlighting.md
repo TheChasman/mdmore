@@ -8,7 +8,7 @@
 
 **Tech Stack:** Rust 2021, ratatui 0.28, syntect 5.3 (pure-Rust `fancy-regex`), two-face 0.5 (bat 0.26.1 assets).
 
-**Spec:** `docs/FrogRust_PRD.md`: Tier 1 #1, Success Criteria #1, #2 and #7, and Architecture ("Syntax highlighting belongs in the renderer").
+**Spec:** `docs/mdmore_PRD.md`: Tier 1 #1, Success Criteria #1, #2 and #7, and Architecture ("Syntax highlighting belongs in the renderer").
 
 ## Global Constraints
 
@@ -171,7 +171,7 @@ git commit -m "feat: syntect highlighter for code blocks (bat ansi theme)"
 
 **Files:**
 - Modify: `src/document/renderer.rs` (the `Block::CodeBlock` arm, plus its tests)
-- Modify: `README.md` (status table: highlighting ✅), `docs/FrogRust_PRD.md` (Status section and Tier 1 #1 marked built)
+- Modify: `README.md` (status table: highlighting ✅), `docs/mdmore_PRD.md` (Status section and Tier 1 #1 marked built)
 
 **Interfaces:**
 - Consumes: `highlight::highlight_code(code: &str, info: Option<&str>) -> Vec<Line<'static>>`, `highlight::grammars_loaded() -> bool`, and `highlight::language_token(info: &str) -> Option<String>` (Task 1).
@@ -230,7 +230,7 @@ README status row: "**Syntax highlighting in code blocks**, the point of FrogRus
 - [ ] **Step 7: Commit**
 
 ```bash
-git add src/document/renderer.rs tests/no_grammar_load.rs README.md docs/FrogRust_PRD.md
+git add src/document/renderer.rs tests/no_grammar_load.rs README.md docs/mdmore_PRD.md
 git commit -m "feat: highlight fenced code blocks in the pager"
 ```
 

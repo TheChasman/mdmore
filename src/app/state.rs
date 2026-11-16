@@ -507,7 +507,7 @@ mod stdin_tests {
         let stdin_doc = Document::from_source("# From stdin".into(), PathBuf::from(STDIN_PATH), None);
         let mut state = AppState::new(PathBuf::from(STDIN_PATH), stdin_doc.clone());
         state.stdin_document = Some(stdin_doc);
-        let other = std::env::temp_dir().join("frogrust_go_back_test.md");
+        let other = std::env::temp_dir().join("mdmore_go_back_test.md");
         std::fs::write(&other, "# Other").unwrap();
         let doc = Document::from_file(&other, None).unwrap();
         state.open_document(other.clone(), doc);

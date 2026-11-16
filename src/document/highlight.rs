@@ -39,7 +39,7 @@ fn resolve_theme(name: &str) -> Result<EmbeddedThemeName, String> {
         .iter()
         .copied()
         .find(|n| n.as_name().eq_ignore_ascii_case(name))
-        .ok_or_else(|| format!("unknown theme '{name}'; run `frogrust --list-themes`"))
+        .ok_or_else(|| format!("unknown theme '{name}'; run `mdmore --list-themes`"))
 }
 
 /// Pure name check (no global state).

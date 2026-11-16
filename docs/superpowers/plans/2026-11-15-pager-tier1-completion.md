@@ -8,7 +8,7 @@
 
 **Tech Stack:** Rust 2021, ratatui 0.28, crossterm 0.28, syntect 5.3 + two-face 0.5, `std::sync::mpsc`, `std::io::IsTerminal`.
 
-**Spec:** `docs/FrogRust_PRD.md`: Tier 1 #3, #4 and #5, Known issues (TypeScript startup), and Success Criteria #1, #3 and #4. The owner ruled on the `b` key on 2026-11-15: **`b` = page up; back moves to `Backspace`.**
+**Spec:** `docs/mdmore_PRD.md`: Tier 1 #3, #4 and #5, Known issues (TypeScript startup), and Success Criteria #1, #3 and #4. The owner ruled on the `b` key on 2026-11-15: **`b` = page up; back moves to `Backspace`.**
 
 ## Global Constraints
 
@@ -33,7 +33,7 @@
 
 **Files:**
 - Modify: `src/app/mod.rs`: in the `event_loop` key match, `Char('b')` calls `self.state.page_up()`. Add `KeyCode::Backspace => self.state.go_back().await?` *after* the existing `Backspace if self.state.is_address_bar_active()` arm.
-- Modify: `README.md` keys table (`b` / `PageUp` = page up; `Backspace` / `f` = back / forward), and delete the README note about `b` meaning back. `TEST.md` Navigation list: same change. `docs/FrogRust_PRD.md`: replace the "Open decisions" `b` bullet with "Resolved 2026-11-15: `b` = page up (less); back = `Backspace`"; add `b` to Tier 1 #3's key list.
+- Modify: `README.md` keys table (`b` / `PageUp` = page up; `Backspace` / `f` = back / forward), and delete the README note about `b` meaning back. `TEST.md` Navigation list: same change. `docs/mdmore_PRD.md`: replace the "Open decisions" `b` bullet with "Resolved 2026-11-15: `b` = page up (less); back = `Backspace`"; add `b` to Tier 1 #3's key list.
 
 - [ ] **Step 1: Make the two key changes**
 - [ ] **Step 2: Run** `cargo build && cargo test`. Expected: builds, all tests pass.
@@ -46,7 +46,7 @@
 ### Task 2: Read Markdown from stdin
 
 **Files:**
-- Modify: `src/document/mod.rs`, `src/main.rs`, `src/app/mod.rs`, `src/app/state.rs`, `README.md` and `docs/FrogRust_PRD.md`
+- Modify: `src/document/mod.rs`, `src/main.rs`, `src/app/mod.rs`, `src/app/state.rs`, `README.md` and `docs/mdmore_PRD.md`
 
 **Interfaces:**
 - Produces:
@@ -109,7 +109,7 @@ async fn go_back_returns_to_stdin_document() {
 ### Task 3: Highlight after the first frame
 
 **Files:**
-- Modify: `src/document/renderer.rs`, `src/document/mod.rs`, `src/app/mod.rs`, `src/app/state.rs` (only if it holds the hook) and `docs/FrogRust_PRD.md`
+- Modify: `src/document/renderer.rs`, `src/document/mod.rs`, `src/app/mod.rs`, `src/app/state.rs` (only if it holds the hook) and `docs/mdmore_PRD.md`
 
 **Interfaces:**
 - Consumes: `Document::from_source` (Task 2) and `highlight::highlight_code` (existing).

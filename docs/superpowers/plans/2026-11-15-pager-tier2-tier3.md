@@ -8,7 +8,7 @@
 
 **Tech Stack:** Rust 2021, ratatui 0.28, crossterm 0.28 (`use-dev-tty`), pulldown-cmark 0.11, syntect 5.3 + two-face 0.5. New in Task 6: `ratatui-image = "2.0.1"` (the last release built for ratatui 0.28) and `image = "0.25"`.
 
-**Spec:** `docs/FrogRust_PRD.md`: Tier 1 #2 (tables), Tier 2 #6, #9 and #10, Tier 3 #11 and #12, Dropped (address bar), Known issues, and Architecture (tokio removal candidate; fetch/storage placeholders).
+**Spec:** `docs/mdmore_PRD.md`: Tier 1 #2 (tables), Tier 2 #6, #9 and #10, Tier 3 #11 and #12, Dropped (address bar), Known issues, and Architecture (tokio removal candidate; fetch/storage placeholders).
 
 ## Global Constraints
 
@@ -80,7 +80,7 @@ fn wide_table_is_truncated_to_width() {
 
 ### Task 2: Replace the address bar with `less`-style search
 
-**Files:** `src/app/state.rs`, `src/app/mod.rs`, `src/ui/mod.rs`, `README.md`, `docs/FrogRust_PRD.md` and `TEST.md`.
+**Files:** `src/app/state.rs`, `src/app/mod.rs`, `src/ui/mod.rs`, `README.md`, `docs/mdmore_PRD.md` and `TEST.md`.
 
 **Interfaces:**
 - `AppMode` becomes `Reading | Search | Error`. Remove `AddressBar`, `address_input`, `enter_address_bar`/`exit_address_bar`/`is_address_bar_active`, the `:` key, and `render_address_bar`. That also fixes the Known issue.
@@ -136,7 +136,7 @@ fn search_no_match() {
 
 ### Task 3: Plain output when not a TTY, and `-F` quit-if-one-screen
 
-**Files:** `src/main.rs`, a new `src/print.rs` (plus `pub mod print;` in `lib.rs`), `README.md` and `docs/FrogRust_PRD.md`.
+**Files:** `src/main.rs`, a new `src/print.rs` (plus `pub mod print;` in `lib.rs`), `README.md` and `docs/mdmore_PRD.md`.
 
 **Interfaces:**
 - `pub fn print_document(doc_source: &str, out: &mut impl std::io::Write, colour: bool, width: Option<u16>) -> std::io::Result<()>`
@@ -180,7 +180,7 @@ fn print_colour_emits_sgr() {
 
 ### Task 4: Highlighting themes
 
-**Files:** `src/document/highlight.rs`, `src/main.rs`, `README.md` and `docs/FrogRust_PRD.md`.
+**Files:** `src/document/highlight.rs`, `src/main.rs`, `README.md` and `docs/mdmore_PRD.md`.
 
 **Interfaces:**
 - The theme is chosen once at startup:
@@ -218,7 +218,7 @@ Split the name check into a pure `pub fn validate_theme(name: &str) -> Result<()
 
 ### Task 5: Remove browser-era code and tokio; apply highlights promptly
 
-**Files:** `Cargo.toml` (remove `tokio`), `src/main.rs`, `src/app/mod.rs`, `src/app/state.rs`, `src/document/mod.rs`, `src/lib.rs`; delete `src/fetch/` and `src/storage/`; `docs/FrogRust_PRD.md` (Architecture, Key Dependencies).
+**Files:** `Cargo.toml` (remove `tokio`), `src/main.rs`, `src/app/mod.rs`, `src/app/state.rs`, `src/document/mod.rs`, `src/lib.rs`; delete `src/fetch/` and `src/storage/`; `docs/mdmore_PRD.md` (Architecture, Key Dependencies).
 
 **Interfaces:**
 - Everything becomes synchronous:
@@ -239,7 +239,7 @@ Split the name check into a pure `pub fn validate_theme(name: &str) -> Result<()
 
 ### Task 6: Inline images
 
-**Files:** `Cargo.toml` (`ratatui-image = "2.0.1"`, `image = "0.25"`), `src/document/parser.rs` (Image), `src/document/renderer.rs`, `src/ui/mod.rs`, `src/app/mod.rs` (picker set-up), `src/print.rs` (alt text), `TEST.md` (add an image), `artwork/` (reuse `artwork/icon/RustFrog.png` as the test image), `README.md` and `docs/FrogRust_PRD.md`.
+**Files:** `Cargo.toml` (`ratatui-image = "2.0.1"`, `image = "0.25"`), `src/document/parser.rs` (Image), `src/document/renderer.rs`, `src/ui/mod.rs`, `src/app/mod.rs` (picker set-up), `src/print.rs` (alt text), `TEST.md` (add an image), `artwork/` (reuse `artwork/icon/RustFrog.png` as the test image), `README.md` and `docs/mdmore_PRD.md`.
 
 **Interfaces:**
 - Parser: a paragraph whose only content is one image → `Block::Image { url: String, alt: String }`. Images inside other text → `Inline::Text(alt)`.

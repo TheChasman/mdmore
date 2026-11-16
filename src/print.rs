@@ -102,7 +102,7 @@ mod tests {
     #[test]
     fn print_image_shows_alt() {
         let mut out = Vec::new();
-        print_document("![a frog](artwork/icon/RustFrog.png)\n", &mut out, false, None).unwrap();
+        print_document("![a frog](artwork/icon/mdmore.png)\n", &mut out, false, None).unwrap();
         assert_eq!(String::from_utf8(out).unwrap().trim(), "[image: a frog]");
     }
 

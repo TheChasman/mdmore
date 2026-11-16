@@ -1,12 +1,12 @@
-# FrogRust
+# mdmore
 
 `more` for Markdown, with syntax highlighting. A single fast Rust binary for reading Markdown in your terminal.
 
 ```bash
-frogrust README.md      # read it rendered, press q to quit
+mdmore README.md      # read it rendered, press q to quit
 ```
 
-Scope, priorities and decisions live in the PRD: [`docs/FrogRust_PRD.md`](docs/FrogRust_PRD.md).
+Scope, priorities and decisions live in the PRD: [`docs/mdmore_PRD.md`](docs/mdmore_PRD.md).
 
 ## Status
 
@@ -16,11 +16,11 @@ Scope, priorities and decisions live in the PRD: [`docs/FrogRust_PRD.md`](docs/F
 | Text wraps to the terminal width (code blocks don't; piped output stays unwrapped) | ✅ |
 | Pager scrolling, TOC sidebar, follow local links, back/forward | ✅ |
 | `--version` (JSON: version, environment, commit) | ✅ |
-| **Syntax highlighting in code blocks**, the point of FrogRust | ✅ |
-| Reading from stdin (`cat x.md \| frogrust` / `frogrust -`) | ✅ |
+| **Syntax highlighting in code blocks**, the point of mdmore | ✅ |
+| Reading from stdin (`cat x.md \| mdmore` / `mdmore -`) | ✅ |
 | Search (`/`, `n`, `N`) | ✅ |
-| Plain output when piped (`frogrust x.md \| head`) | ✅ |
-| `-F` / `--quit-if-one-screen` (`frogrust -F short.md`) | ✅ |
+| Plain output when piped (`mdmore x.md \| head`) | ✅ |
+| `-F` / `--quit-if-one-screen` (`mdmore -F short.md`) | ✅ |
 | Inline images (iTerm2, Kitty, Sixel; half-blocks elsewhere). Local files only; for documents piped on stdin, relative paths resolve against the current directory. Transparent PNG areas are blended onto the terminal background (black if the terminal does not report it) | ✅ |
 
 ## Requirements
@@ -31,7 +31,7 @@ Scope, priorities and decisions live in the PRD: [`docs/FrogRust_PRD.md`](docs/F
 ## Install
 
 ```bash
-cargo install --path .    # installs frogrust into ~/.cargo/bin
+cargo install --path .    # installs mdmore into ~/.cargo/bin
 ```
 
 Build natively on each machine (Apple Silicon or Intel; no cross-compiling).
@@ -42,7 +42,7 @@ Build natively on each machine (Apple Silicon or Intel; no cross-compiling).
 scripts/deploy-mac.sh
 ```
 
-Installs `~/Applications/FrogRust.app` with the icon in `artwork/icon/`. It appears in Finder's **Open With** menu for `.md` files and opens each file in a Terminal window that runs FrogRust directly, skipping your shell startup. It's a convenience; FrogRust is a terminal pager.
+Installs `~/Applications/mdmore.app` with the icon in `artwork/icon/`. It appears in Finder's **Open With** menu for `.md` files and opens each file in a Terminal window that runs mdmore directly, skipping your shell startup. It's a convenience; mdmore is a terminal pager.
 
 ## Keys
 
@@ -61,12 +61,12 @@ Installs `~/Applications/FrogRust.app` with the icon in `artwork/icon/`. It appe
 
 ## Themes
 
-Code blocks use the `ansi` theme by default, which follows your terminal's own palette and so suits light and dark terminals. Pick another with `--theme <NAME>` or the `FROGRUST_THEME` environment variable (the flag wins). `frogrust --list-themes` prints the available names, one per line. Names are case-insensitive; an unknown name exits with code 2. Other themes use fixed RGB colours.
+Code blocks use the `ansi` theme by default, which follows your terminal's own palette and so suits light and dark terminals. Pick another with `--theme <NAME>` or the `MDMORE_THEME` environment variable (the flag wins). `mdmore --list-themes` prints the available names, one per line. Names are case-insensitive; an unknown name exits with code 2. Other themes use fixed RGB colours.
 
 ## Acknowledgements
 
 - Syntax definitions and themes come from [bat](https://github.com/sharkdp/bat), packaged for syntect by [two-face](https://codeberg.org/CosmicHarper/two-face). The individual grammars carry their own licences; two-face lists them.
-- Inspired by [Frogmouth](https://github.com/Textualize/frogmouth), the Textual Markdown browser.
+- **mdmore is based on [Frogmouth](https://github.com/Textualize/frogmouth)**, the Markdown browser for the terminal by Textualize (MIT licence, © 2023 Textualize, Inc). This crate began as FrogRust, a Rust reimplementation of Frogmouth: its rendered-Markdown view, table of contents and link navigation with back/forward were the starting point. It has since been reshaped into a pager. No Frogmouth source code is included; it is written from scratch in Rust.
 
 ## License
 

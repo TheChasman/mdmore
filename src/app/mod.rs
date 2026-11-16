@@ -362,7 +362,7 @@ mod tests {
     fn picker_only_for_documents_with_images() {
         let plain = Document::from_source("# Hi\n\ntext".into(), PathBuf::from("x.md"), None);
         let md = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("artwork/icon/x.md");
-        let with_img = Document::from_source("![alt](RustFrog.png)".into(), md, None);
+        let with_img = Document::from_source("![alt](mdmore.png)".into(), md, None);
         assert!(!needs_picker(false, &plain));
         assert!(needs_picker(false, &with_img));
         assert!(!needs_picker(true, &with_img));

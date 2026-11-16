@@ -1,5 +1,5 @@
-use frogrust::document::highlight;
-use frogrust::print::fits_in;
+use mdmore::document::highlight;
+use mdmore::print::fits_in;
 
 #[test]
 fn fits_in_counts_without_loading_grammars() {
