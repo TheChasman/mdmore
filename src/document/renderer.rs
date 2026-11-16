@@ -1,8 +1,8 @@
 // src/document/renderer.rs
 
 use super::highlight;
-use ratatui::text::{Line, Span};
 use ratatui::style::{Color, Modifier, Style};
+use ratatui::text::{Line, Span};
 use std::path::{Path, PathBuf};
 
 /// Rows reserved for an inline image.
@@ -84,14 +84,22 @@ pub fn render_with_base(
     doc
 }
 
-fn render_block(block: &crate::document::parser::Block, doc: &mut RenderedDoc, highlight: bool, max_width: Option<u16>, base_dir: Option<&Path>) {
+fn render_block(
+    block: &crate::document::parser::Block,
+    doc: &mut RenderedDoc,
+    highlight: bool,
+    max_width: Option<u16>,
+    base_dir: Option<&Path>,
+) {
     use crate::document::parser::Block;
 
     match block {
         Block::Heading { level, inlines } => {
             let line_index = doc.lines.len();
             let style = match level {
-                1 => Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD),
+                1 => Style::default()
+                    .fg(Color::Cyan)
+                    .add_modifier(Modifier::BOLD),
                 2 => Style::default().fg(Color::Cyan),
                 3 => Style::default().fg(Color::Blue),
                 _ => Style::default().fg(Color::Blue).add_modifier(Modifier::DIM),
@@ -121,11 +129,13 @@ fn render_block(block: &crate::document::parser::Block, doc: &mut RenderedDoc, h
                 fence_style,
             )));
             if highlight {
-                doc.lines.extend(highlight::highlight_code(code, lang.as_deref()));
+                doc.lines
+                    .extend(highlight::highlight_code(code, lang.as_deref()));
             } else {
                 doc.lines.extend(highlight::plain(code));
             }
-            doc.lines.push(Line::from(Span::styled("```".to_string(), fence_style)));
+            doc.lines
+                .push(Line::from(Span::styled("```".to_string(), fence_style)));
             doc.lines.push(Line::from("")); // Empty line after code block
         }
         Block::BlockQuote { blocks: inner } => {
@@ -158,7 +168,11 @@ fn render_block(block: &crate::document::parser::Block, doc: &mut RenderedDoc, h
                 }
                 // Marker on the first line; hanging indent under it on the rest.
                 for i in start_idx..doc.lines.len() {
-                    let prefix = if i == start_idx { marker.clone() } else { " ".repeat(marker_w) };
+                    let prefix = if i == start_idx {
+                        marker.clone()
+                    } else {
+                        " ".repeat(marker_w)
+                    };
                     prefix_line(doc, i, links_before, Span::raw(prefix));
                 }
             }
@@ -166,7 +180,8 @@ fn render_block(block: &crate::document::parser::Block, doc: &mut RenderedDoc, h
         Block::Rule => {
             let style = Style::default().fg(Color::DarkGray);
             let len = max_width.map_or(40, |w| (w as usize).min(40));
-            doc.lines.push(Line::from(Span::styled("─".repeat(len), style)));
+            doc.lines
+                .push(Line::from(Span::styled("─".repeat(len), style)));
         }
         Block::Table { headers, rows } => render_table(headers, rows, doc, max_width),
         Block::Image { url, alt } => match local_image(url, base_dir) {
@@ -205,7 +220,12 @@ fn prefix_line(doc: &mut RenderedDoc, i: usize, links_from: usize, prefix: Span<
 /// `"\n"` span (hard break) forces a new line. Links registered at or after
 /// `links_from` refer to the logical line and are re-registered per wrapped
 /// segment. Widths are counted in chars. Upgrade path: unicode-width for CJK.
-fn push_wrapped(doc: &mut RenderedDoc, spans: Vec<Span<'static>>, links_from: usize, width: Option<u16>) {
+fn push_wrapped(
+    doc: &mut RenderedDoc,
+    spans: Vec<Span<'static>>,
+    links_from: usize,
+    width: Option<u16>,
+) {
     if spans.is_empty() {
         return;
     }
@@ -304,19 +324,34 @@ fn push_wrapped(doc: &mut RenderedDoc, spans: Vec<Span<'static>>, links_from: us
     let old: Vec<LinkInfo> = doc.links.drain(links_from..).collect();
     for l in old {
         let mut seg: Option<(usize, usize, usize)> = None; // (row, start, end)
-        for p in pos.iter().take(l.col_end.min(chars.len())).skip(l.col_start).flatten() {
+        for p in pos
+            .iter()
+            .take(l.col_end.min(chars.len()))
+            .skip(l.col_start)
+            .flatten()
+        {
             match &mut seg {
                 Some((r, _, e)) if *r == p.0 => *e = p.1 + 1,
                 _ => {
                     if let Some((r, s, e)) = seg.take() {
-                        doc.links.push(LinkInfo { line: base + r, col_start: s, col_end: e, url: l.url.clone() });
+                        doc.links.push(LinkInfo {
+                            line: base + r,
+                            col_start: s,
+                            col_end: e,
+                            url: l.url.clone(),
+                        });
                     }
                     seg = Some((p.0, p.1, p.1 + 1));
                 }
             }
         }
         if let Some((r, s, e)) = seg {
-            doc.links.push(LinkInfo { line: base + r, col_start: s, col_end: e, url: l.url });
+            doc.links.push(LinkInfo {
+                line: base + r,
+                col_start: s,
+                col_end: e,
+                url: l.url,
+            });
         }
     }
 }
@@ -336,7 +371,12 @@ fn render_table(
     doc: &mut RenderedDoc,
     max_width: Option<u16>,
 ) {
-    let ncols = rows.iter().map(|r| r.len()).chain([headers.len()]).max().unwrap_or(0);
+    let ncols = rows
+        .iter()
+        .map(|r| r.len())
+        .chain([headers.len()])
+        .max()
+        .unwrap_or(0);
     if ncols == 0 {
         return;
     }
@@ -355,7 +395,12 @@ fn render_table(
         // Shrink the widest column first, down to a minimum of 3 chars.
         let overhead = 3 * (ncols - 1);
         while widths.iter().sum::<usize>() + overhead > max as usize {
-            let (i, w) = widths.iter().copied().enumerate().max_by_key(|&(_, w)| w).unwrap();
+            let (i, w) = widths
+                .iter()
+                .copied()
+                .enumerate()
+                .max_by_key(|&(_, w)| w)
+                .unwrap();
             if w <= 3 {
                 break;
             }
@@ -372,9 +417,15 @@ fn render_table(
             s
         }
     };
-    let emit = |cells: Vec<Option<&Vec<crate::document::parser::Inline>>>, bold: bool, doc: &mut RenderedDoc| {
+    let emit = |cells: Vec<Option<&Vec<crate::document::parser::Inline>>>,
+                bold: bool,
+                doc: &mut RenderedDoc| {
         let line_index = doc.lines.len();
-        let style = if bold { Style::default().add_modifier(Modifier::BOLD) } else { Style::default() };
+        let style = if bold {
+            Style::default().add_modifier(Modifier::BOLD)
+        } else {
+            Style::default()
+        };
         let mut spans: Vec<Span<'static>> = vec![];
         for (i, cell) in cells.into_iter().enumerate() {
             if i > 0 {
@@ -486,7 +537,9 @@ fn inlines_to_text(inlines: &[crate::document::parser::Inline]) -> String {
                 text.push_str(&inlines_to_text(inner));
             }
             Inline::Code(s) => text.push_str(s),
-            Inline::Link { text: link_text, .. } => {
+            Inline::Link {
+                text: link_text, ..
+            } => {
                 text.push_str(&inlines_to_text(link_text));
             }
             Inline::SoftBreak => text.push(' '),
@@ -503,9 +556,18 @@ mod tests {
 
     #[test]
     fn missing_image_falls_back_to_alt() {
-        let doc = render_with_base(&parser::parse("![gone](nope.png)"), false, None, Some(Path::new("/tmp")));
+        let doc = render_with_base(
+            &parser::parse("![gone](nope.png)"),
+            false,
+            None,
+            Some(Path::new("/tmp")),
+        );
         assert!(doc.images.is_empty());
-        let t: String = doc.lines[0].spans.iter().map(|s| s.content.to_string()).collect();
+        let t: String = doc.lines[0]
+            .spans
+            .iter()
+            .map(|s| s.content.to_string())
+            .collect();
         assert_eq!(t, "[image: gone]");
     }
 
@@ -514,7 +576,12 @@ mod tests {
         let dir = std::env::temp_dir();
         let p = dir.join("mdmore_test_img.png");
         image::RgbaImage::new(4, 4).save(&p).unwrap();
-        let doc = render_with_base(&parser::parse("![x](mdmore_test_img.png)"), false, None, Some(&dir));
+        let doc = render_with_base(
+            &parser::parse("![x](mdmore_test_img.png)"),
+            false,
+            None,
+            Some(&dir),
+        );
         assert_eq!(doc.images.len(), 1);
         assert_eq!(doc.images[0].height, 12);
         assert_eq!(doc.lines.len(), 12);
@@ -522,26 +589,42 @@ mod tests {
     use crate::document::parser;
 
     fn texts(doc: &RenderedDoc) -> Vec<String> {
-        doc.lines.iter().map(|l| l.spans.iter().map(|s| s.content.to_string()).collect()).collect()
+        doc.lines
+            .iter()
+            .map(|l| l.spans.iter().map(|s| s.content.to_string()).collect())
+            .collect()
     }
 
     #[test]
     fn one_blank_line_between_top_level_blocks() {
-        let doc = render_with(&parser::parse("# H\n\npara\n\n> quote\n\n| a |\n|---|\n| 1 |"), false, None);
-        assert_eq!(texts(&doc), vec!["H", "", "para", "", "│ quote", "", "a", "─", "1"]);
+        let doc = render_with(
+            &parser::parse("# H\n\npara\n\n> quote\n\n| a |\n|---|\n| 1 |"),
+            false,
+            None,
+        );
+        assert_eq!(
+            texts(&doc),
+            vec!["H", "", "para", "", "│ quote", "", "a", "─", "1"]
+        );
         assert_eq!(doc.headings[0].line, 0);
     }
 
     #[test]
     fn code_blocks_are_not_double_spaced() {
         let doc = render_with(&parser::parse("para\n\n```\nx\n```\n\nafter"), false, None);
-        assert_eq!(texts(&doc), vec!["para", "", "```", "x", "```", "", "after"]);
+        assert_eq!(
+            texts(&doc),
+            vec!["para", "", "```", "x", "```", "", "after"]
+        );
     }
 
     #[test]
     fn consecutive_code_blocks_share_one_blank() {
         let doc = render_with(&parser::parse("```\na\n```\n\n```\nb\n```"), false, None);
-        assert_eq!(texts(&doc), vec!["", "```", "a", "```", "", "```", "b", "```", ""]);
+        assert_eq!(
+            texts(&doc),
+            vec!["", "```", "a", "```", "", "```", "b", "```", ""]
+        );
     }
 
     #[test]
@@ -561,7 +644,10 @@ mod tests {
 
     #[test]
     fn splits_overlong_words() {
-        assert_eq!(texts(&w("abcdefghij xy", 4)), vec!["abcd", "efgh", "ij", "xy"]);
+        assert_eq!(
+            texts(&w("abcdefghij xy", 4)),
+            vec!["abcd", "efgh", "ij", "xy"]
+        );
     }
 
     #[test]
@@ -580,12 +666,18 @@ mod tests {
     #[test]
     fn list_items_wrap_with_hanging_indent() {
         assert_eq!(texts(&w("- aaa bbb ccc", 9)), vec!["• aaa bbb", "  ccc"]);
-        assert_eq!(texts(&w("1. aaa bbb ccc", 10)), vec!["1. aaa bbb", "   ccc"]);
+        assert_eq!(
+            texts(&w("1. aaa bbb ccc", 10)),
+            vec!["1. aaa bbb", "   ccc"]
+        );
     }
 
     #[test]
     fn nested_list_wraps_inside_parent() {
-        assert_eq!(texts(&w("- a\n  - bbb ccc", 9)), vec!["• a", "  • bbb", "    ccc"]);
+        assert_eq!(
+            texts(&w("- a\n  - bbb ccc", 9)),
+            vec!["• a", "  • bbb", "    ccc"]
+        );
     }
 
     #[test]
@@ -613,14 +705,25 @@ mod tests {
     fn wrapped_link_registers_each_segment() {
         let doc = w("see [one two](./x.md) end", 7);
         assert_eq!(texts(&doc), vec!["see one", "two end"]);
-        let segs: Vec<_> = doc.links.iter().map(|l| (l.line, l.col_start, l.col_end, l.url.as_str())).collect();
+        let segs: Vec<_> = doc
+            .links
+            .iter()
+            .map(|l| (l.line, l.col_start, l.col_end, l.url.as_str()))
+            .collect();
         assert_eq!(segs, vec![(0, 4, 7, "./x.md"), (1, 0, 3, "./x.md")]);
     }
 
     #[test]
     fn link_cols_include_list_and_quote_prefixes() {
         let doc = w("- [go](./g.md)", 40);
-        assert_eq!((doc.links[0].line, doc.links[0].col_start, doc.links[0].col_end), (0, 2, 4));
+        assert_eq!(
+            (
+                doc.links[0].line,
+                doc.links[0].col_start,
+                doc.links[0].col_end
+            ),
+            (0, 2, 4)
+        );
         let doc = w("> [go](./g.md)", 40);
         assert_eq!((doc.links[0].col_start, doc.links[0].col_end), (2, 4));
     }
@@ -686,10 +789,18 @@ mod tests {
         let doc = render(&parser::parse("```rust,ignore\nfn main() {}\n```"));
         // [blank, fence, body, fence, blank]
         assert_eq!(doc.lines.len(), 5);
-        let fence: String = doc.lines[1].spans.iter().map(|s| s.content.as_ref()).collect();
+        let fence: String = doc.lines[1]
+            .spans
+            .iter()
+            .map(|s| s.content.as_ref())
+            .collect();
         assert_eq!(fence, "```rust");
         assert!(doc.lines[2].spans.iter().any(|s| s.style.fg.is_some()));
-        assert!(doc.lines.iter().flat_map(|l| &l.spans).all(|s| s.style.bg.is_none()));
+        assert!(doc
+            .lines
+            .iter()
+            .flat_map(|l| &l.spans)
+            .all(|s| s.style.bg.is_none()));
     }
 
     #[test]
@@ -713,7 +824,12 @@ mod tests {
         let text = |d: &RenderedDoc| {
             d.lines
                 .iter()
-                .map(|l| l.spans.iter().map(|s| s.content.to_string()).collect::<String>())
+                .map(|l| {
+                    l.spans
+                        .iter()
+                        .map(|s| s.content.to_string())
+                        .collect::<String>()
+                })
                 .collect::<Vec<_>>()
         };
         assert_eq!(text(&plain), text(&hl));
@@ -721,15 +837,23 @@ mod tests {
 
     #[test]
     fn renders_table_grid() {
-        let doc = render(&parser::parse("| A | Bee |\n|---|---|\n| 1 | 2 |\n| long cell | x |"));
-        let text: Vec<String> = doc.lines.iter()
-            .map(|l| l.spans.iter().map(|s| s.content.to_string()).collect()).collect();
-        assert_eq!(text, vec![
-            "A         │ Bee",
-            "──────────┼────",
-            "1         │ 2",
-            "long cell │ x",
-        ]);
+        let doc = render(&parser::parse(
+            "| A | Bee |\n|---|---|\n| 1 | 2 |\n| long cell | x |",
+        ));
+        let text: Vec<String> = doc
+            .lines
+            .iter()
+            .map(|l| l.spans.iter().map(|s| s.content.to_string()).collect())
+            .collect();
+        assert_eq!(
+            text,
+            vec![
+                "A         │ Bee",
+                "──────────┼────",
+                "1         │ 2",
+                "long cell │ x",
+            ]
+        );
     }
 
     #[test]
@@ -740,13 +864,25 @@ mod tests {
             let w: usize = l.spans.iter().map(|s| s.content.chars().count()).sum();
             assert!(w <= 20, "line too wide: {w}");
         }
-        assert!(doc.lines.iter().any(|l| l.spans.iter().any(|s| s.content.contains('…'))));
+        assert!(doc
+            .lines
+            .iter()
+            .any(|l| l.spans.iter().any(|s| s.content.contains('…'))));
     }
 
     #[test]
     fn table_links_have_column_offsets() {
-        let doc = render(&parser::parse("| A | B |\n|---|---|\n| xx | [go](./g.md) |"));
+        let doc = render(&parser::parse(
+            "| A | B |\n|---|---|\n| xx | [go](./g.md) |",
+        ));
         assert_eq!(doc.links.len(), 1);
-        assert_eq!((doc.links[0].line, doc.links[0].col_start, doc.links[0].col_end), (2, 5, 7));
+        assert_eq!(
+            (
+                doc.links[0].line,
+                doc.links[0].col_start,
+                doc.links[0].col_end
+            ),
+            (2, 5, 7)
+        );
     }
 }

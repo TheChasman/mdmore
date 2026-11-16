@@ -1,9 +1,6 @@
 use crate::app::state::AppState;
 use anyhow::Result;
 use crossterm::terminal::size;
-use ratatui_image::{picker::Picker, protocol::StatefulProtocol, StatefulImage};
-use std::collections::HashMap;
-use std::path::{Path, PathBuf};
 use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
@@ -11,6 +8,9 @@ use ratatui::{
     widgets::{Block, Borders, List, ListItem, Paragraph},
     Frame,
 };
+use ratatui_image::{picker::Picker, protocol::StatefulProtocol, StatefulImage};
+use std::collections::HashMap;
+use std::path::{Path, PathBuf};
 
 pub struct Ui {
     pub width: u16,
@@ -67,13 +67,10 @@ impl Ui {
                         // Highlight cursor line with reversed colors
                         let mut highlighted_spans = Vec::new();
                         for span in &line.spans {
-                            let highlighted_style = Style::default()
-                                .bg(Color::White)
-                                .fg(Color::Black);
-                            highlighted_spans.push(Span::styled(
-                                span.content.clone(),
-                                highlighted_style,
-                            ));
+                            let highlighted_style =
+                                Style::default().bg(Color::White).fg(Color::Black);
+                            highlighted_spans
+                                .push(Span::styled(span.content.clone(), highlighted_style));
                         }
                         return Line::from(highlighted_spans);
                     }
@@ -112,7 +109,12 @@ impl Ui {
             }
             let fully = top >= start && bottom <= end;
             if fully {
-                let rect = Rect::new(area.x, area.y + (top - start) as u16, area.width, info.height);
+                let rect = Rect::new(
+                    area.x,
+                    area.y + (top - start) as u16,
+                    area.width,
+                    info.height,
+                );
                 if let Some(proto) = self.image_for(&info.path) {
                     f.render_stateful_widget(StatefulImage::new(None), rect, proto);
                     continue;
@@ -133,7 +135,12 @@ impl Ui {
         self.images
             .entry(path.to_path_buf())
             .or_insert_with(|| {
-                let img = image::ImageReader::open(path).ok()?.with_guessed_format().ok()?.decode().ok()?;
+                let img = image::ImageReader::open(path)
+                    .ok()?
+                    .with_guessed_format()
+                    .ok()?
+                    .decode()
+                    .ok()?;
                 // ratatui-image's iTerm2 path encodes JPEG (no alpha) and only blends the
                 // padding, so flatten transparency onto the terminal background ourselves.
                 let bg = picker.background_color.map_or([0, 0, 0], |c| c.0);
@@ -172,14 +179,18 @@ impl Ui {
     }
 
     fn render_status_bar(&self, f: &mut Frame, state: &AppState, area: Rect) {
-        let file_name = state.current_location
+        let file_name = state
+            .current_location
             .file_name()
             .map(|n| n.to_string_lossy().into_owned())
             .unwrap_or_else(|| "unknown".to_string());
 
         let line_count = state.current_document.rendered.lines.len();
-        let (visible_start, visible_end) =
-            visible_range(state.scroll_offset as usize, state.viewport_height as usize, line_count);
+        let (visible_start, visible_end) = visible_range(
+            state.scroll_offset as usize,
+            state.viewport_height as usize,
+            line_count,
+        );
 
         let cursor_info = if let Some(c) = state.cursor_line {
             format!(" | Cursor: {}", c + 1)
@@ -192,13 +203,9 @@ impl Ui {
         } else if let Some(msg) = &state.status_message {
             msg.clone()
         } else {
-            format!("{} | {}-{}/{} lines{} | Mode: {:?}", 
-            file_name,
-            visible_start,
-            visible_end,
-            line_count,
-            cursor_info,
-            state.mode
+            format!(
+                "{} | {}-{}/{} lines{} | Mode: {:?}",
+                file_name, visible_start, visible_end, line_count, cursor_info, state.mode
             )
         };
 
@@ -246,7 +253,11 @@ fn highlight_ranges(line: &Line<'static>, ranges: &[(usize, usize)]) -> Line<'st
         let push = |from: usize, to: usize, rev: bool, out: &mut Vec<Span<'static>>| {
             if from < to {
                 let text: String = chars[from..to].iter().collect();
-                let style = if rev { span.style.add_modifier(Modifier::REVERSED) } else { span.style };
+                let style = if rev {
+                    span.style.add_modifier(Modifier::REVERSED)
+                } else {
+                    span.style
+                };
                 out.push(Span::styled(text, style));
             }
         };
@@ -274,8 +285,10 @@ mod tests {
         let w = text_area_width(80, true);
         assert!(w < 80);
         assert_eq!(text_area_width(80, false), 80);
-        let src = "word ".repeat(100) + "\n\n> " + &"quote ".repeat(40) + "\n\n- " + &"item ".repeat(40);
-        let doc = crate::document::Document::from_source(src, std::path::PathBuf::from("t.md"), Some(w));
+        let src =
+            "word ".repeat(100) + "\n\n> " + &"quote ".repeat(40) + "\n\n- " + &"item ".repeat(40);
+        let doc =
+            crate::document::Document::from_source(src, std::path::PathBuf::from("t.md"), Some(w));
         for l in &doc.rendered.lines {
             let n: usize = l.spans.iter().map(|s| s.content.chars().count()).sum();
             assert!(n <= w as usize, "line of {n} exceeds text area {w}");
@@ -309,13 +322,19 @@ mod composite_tests {
     #[test]
     fn transparent_becomes_background() {
         let img = image::RgbaImage::from_pixel(2, 2, image::Rgba([200, 10, 10, 0]));
-        assert_eq!(composite_over(&img, [30, 40, 50]).get_pixel(1, 1).0, [30, 40, 50]);
+        assert_eq!(
+            composite_over(&img, [30, 40, 50]).get_pixel(1, 1).0,
+            [30, 40, 50]
+        );
     }
 
     #[test]
     fn opaque_is_unchanged() {
         let img = image::RgbaImage::from_pixel(2, 2, image::Rgba([200, 10, 90, 255]));
-        assert_eq!(composite_over(&img, [30, 40, 50]).get_pixel(0, 0).0, [200, 10, 90]);
+        assert_eq!(
+            composite_over(&img, [30, 40, 50]).get_pixel(0, 0).0,
+            [200, 10, 90]
+        );
     }
 
     #[test]

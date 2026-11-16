@@ -20,7 +20,9 @@ fn unknown_theme_exits_2() {
 fn list_themes_prints_names() {
     let out = run(&["--list-themes"]);
     assert!(out.status.success());
-    assert!(String::from_utf8_lossy(&out.stdout).lines().any(|l| l == "ansi"));
+    assert!(String::from_utf8_lossy(&out.stdout)
+        .lines()
+        .any(|l| l == "ansi"));
 }
 
 #[test]

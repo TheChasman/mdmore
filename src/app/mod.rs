@@ -4,13 +4,13 @@ use crate::document::Document;
 use crate::ui::Ui;
 use anyhow::Result;
 use crossterm::{
-    execute,
     cursor::Show,
+    execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
 use ratatui::prelude::*;
-use std::path::PathBuf;
 use std::io;
+use std::path::PathBuf;
 
 pub struct App {
     state: state::AppState,
@@ -31,10 +31,12 @@ fn detect_picker() -> Option<ratatui_image::picker::Picker> {
     let stdin = rustix::stdio::stdin();
     let flags = rustix::fs::fcntl_getfl(stdin).ok();
     let termios = rustix::termios::tcgetattr(stdin).ok();
-    let picker = ratatui_image::picker::Picker::from_termios().ok().map(|mut p| {
-        p.guess_protocol();
-        p
-    });
+    let picker = ratatui_image::picker::Picker::from_termios()
+        .ok()
+        .map(|mut p| {
+            p.guess_protocol();
+            p
+        });
     if let Some(flags) = flags {
         let _ = rustix::fs::fcntl_setfl(stdin, flags);
     }
@@ -95,7 +97,9 @@ fn query_background(saved: &rustix::termios::Termios) -> Option<[u8; 3]> {
 fn parse_osc11_reply(reply: &[u8]) -> Option<[u8; 3]> {
     let text = std::str::from_utf8(reply).ok()?;
     let rest = &text[text.find("rgb:")? + 4..];
-    let end = rest.find(|c: char| !(c.is_ascii_hexdigit() || c == '/')).unwrap_or(rest.len());
+    let end = rest
+        .find(|c: char| !(c.is_ascii_hexdigit() || c == '/'))
+        .unwrap_or(rest.len());
     let mut channels = rest[..end].split('/');
     let mut rgb = [0u8; 3];
     for slot in &mut rgb {
@@ -271,7 +275,8 @@ impl App {
                         }
                         continue;
                     }
-                    let plain_g = matches!(key.code, KeyCode::Char('g')) && key.modifiers == KeyModifiers::NONE;
+                    let plain_g = matches!(key.code, KeyCode::Char('g'))
+                        && key.modifiers == KeyModifiers::NONE;
                     if !plain_g {
                         self.state.pending_g = false;
                     }
@@ -327,10 +332,19 @@ impl App {
                             if self.state.toc_visible {
                                 self.state.jump_to_heading();
                             } else if let Some(line) = self.state.cursor_line {
-                                if let Some(link) = self.state.current_document.rendered.links.iter().find(|l| l.line == line) {
+                                if let Some(link) = self
+                                    .state
+                                    .current_document
+                                    .rendered
+                                    .links
+                                    .iter()
+                                    .find(|l| l.line == line)
+                                {
                                     let path = PathBuf::from(&link.url);
                                     if path.exists() {
-                                        if let Ok(doc) = Document::from_file(&path, self.state.render_width) {
+                                        if let Ok(doc) =
+                                            Document::from_file(&path, self.state.render_width)
+                                        {
                                             self.state.open_document(path, doc);
                                         }
                                     }
@@ -370,10 +384,22 @@ mod tests {
 
     #[test]
     fn osc11_reply_parsing() {
-        assert_eq!(parse_osc11_reply(b"\x1b]11;rgb:1234/5678/9abc\x07"), Some([18, 86, 154]));
-        assert_eq!(parse_osc11_reply(b"\x1b]11;rgb:ffff/0000/8080\x1b\\"), Some([255, 0, 128]));
-        assert_eq!(parse_osc11_reply(b"\x1b]11;rgb:ff/80/00\x07"), Some([255, 128, 0]));
-        assert_eq!(parse_osc11_reply(b"\x1b]11;rgb:f/0/8\x07"), Some([255, 0, 136]));
+        assert_eq!(
+            parse_osc11_reply(b"\x1b]11;rgb:1234/5678/9abc\x07"),
+            Some([18, 86, 154])
+        );
+        assert_eq!(
+            parse_osc11_reply(b"\x1b]11;rgb:ffff/0000/8080\x1b\\"),
+            Some([255, 0, 128])
+        );
+        assert_eq!(
+            parse_osc11_reply(b"\x1b]11;rgb:ff/80/00\x07"),
+            Some([255, 128, 0])
+        );
+        assert_eq!(
+            parse_osc11_reply(b"\x1b]11;rgb:f/0/8\x07"),
+            Some([255, 0, 136])
+        );
         assert_eq!(parse_osc11_reply(b"garbage"), None);
         assert_eq!(parse_osc11_reply(b""), None);
         assert_eq!(parse_osc11_reply(b"\x1b]11;rgb:zz/00/00\x07"), None);
