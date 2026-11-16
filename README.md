@@ -6,6 +6,10 @@
 mdmore README.md      # read it rendered, press q to quit
 ```
 
+![mdmore rendering the RICH.md showcase with an inline image, highlighted Rust and a keys table](artwork/screenshot.png)
+
+Try the showcase: `mdmore RICH.md`.
+
 Scope, priorities and decisions live in the PRD: [`docs/mdmore_PRD.md`](docs/mdmore_PRD.md).
 
 ## Status
